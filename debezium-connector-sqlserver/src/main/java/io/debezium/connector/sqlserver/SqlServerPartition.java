@@ -5,15 +5,23 @@
  */
 package io.debezium.connector.sqlserver;
 
-import java.util.Collections;
+import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAMES;
+
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.debezium.config.Configuration;
 import io.debezium.pipeline.spi.Partition;
 import io.debezium.util.Collect;
 
 public class SqlServerPartition implements Partition {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerPartition.class);
     private static final String SERVER_PARTITION_KEY = "server";
     private static final String DATABASE_PARTITION_KEY = "database";
 
@@ -65,17 +73,35 @@ public class SqlServerPartition implements Partition {
 
     static class Provider implements Partition.Provider<SqlServerPartition> {
         private final SqlServerConnectorConfig connectorConfig;
+        private final Configuration taskConfig;
+        private final SqlServerConnection connection;
 
-        Provider(SqlServerConnectorConfig connectorConfig) {
+        Provider(SqlServerConnectorConfig connectorConfig, Configuration taskConfig, SqlServerConnection connection) {
             this.connectorConfig = connectorConfig;
+            this.taskConfig = taskConfig;
+            this.connection = connection;
         }
 
         @Override
         public Set<SqlServerPartition> getPartitions() {
-            return Collections.singleton(new SqlServerPartition(
-                    connectorConfig.getLogicalName(),
-                    connectorConfig.getDatabaseName(),
-                    connectorConfig.isMultiPartitionModeEnabled()));
+            String serverName = connectorConfig.getLogicalName();
+            boolean multiPartitionMode = connectorConfig.isMultiPartitionModeEnabled();
+
+            String[] databaseNames = taskConfig.getString(DATABASE_NAMES.name()).split(",");
+
+            return Arrays.stream(databaseNames)
+                    .map(databaseName -> {
+                        try {
+                            return connection.retrieveRealDatabaseName(databaseName);
+                        }
+                        catch (RuntimeException e) {
+                            LOGGER.warn("Couldn't obtain real name for database {}", databaseName);
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .map(realDatabaseName -> new SqlServerPartition(serverName, realDatabaseName, multiPartitionMode))
+                    .collect(Collectors.toSet());
         }
     }
 }
