@@ -5,7 +5,12 @@
  */
 package io.debezium.connector.sqlserver;
 
+import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAME;
+import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAMES;
+
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -51,29 +56,57 @@ public class SqlServerConnector extends RelationalBaseSourceConnector {
 
     @Override
     public List<Map<String, String>> taskConfigs(int maxTasks) {
-        if (maxTasks > 1) {
-            throw new IllegalArgumentException("Only a single connector task may be started");
+        if (!properties.containsKey(DATABASE_NAMES.name())) {
+            if (maxTasks > 1) {
+                throw new IllegalArgumentException("Only a single connector task may be started");
+            }
+
+            return Collections.singletonList(properties);
         }
 
-        Map<String, String> taskConfig = new HashMap<>(properties);
-
-        Configuration config = Configuration.from(properties);
+        final Configuration config = Configuration.from(properties);
         final SqlServerConnectorConfig sqlServerConfig = new SqlServerConnectorConfig(config);
-        final String databaseName = sqlServerConfig.getDatabaseName();
         try (SqlServerConnection connection = connect(sqlServerConfig)) {
-            final String realDatabaseName = connection.retrieveRealDatabaseName(databaseName);
-            if (!sqlServerConfig.isMultiPartitionModeEnabled()) {
-                taskConfig.put(SqlServerConnectorConfig.DATABASE_NAME.name(), realDatabaseName);
-            }
-            else {
-                taskConfig.put(SqlServerConnectorConfig.DATABASE_NAMES.name(), realDatabaseName);
-            }
+            return buildTaskConfigs(connection, maxTasks);
         }
         catch (SQLException e) {
-            throw new RuntimeException("Could not retrieve real database name", e);
+            throw new IllegalArgumentException("Could not build task configs", e);
+        }
+    }
+
+    private List<Map<String, String>> buildTaskConfigs(SqlServerConnection connection, int maxTasks) {
+
+        List<String> dbNames;
+
+        // Parse the database names property
+        dbNames = Arrays.asList(properties.get(DATABASE_NAMES.name()).split(","));
+        if (dbNames.isEmpty()) {
+            throw new IllegalArgumentException();
         }
 
-        return Collections.singletonList(taskConfig);
+        // Initialize the database list for each task
+        List<List<String>> taskDatabases = new ArrayList<>();
+        for (int i = 0; i < maxTasks; i++) {
+            taskDatabases.add(new ArrayList<>());
+        }
+
+        // Add each database to a task list via round-robin.
+        for (int dbNamesIndex = 0; dbNamesIndex < dbNames.size(); dbNamesIndex++) {
+            int taskIndex = dbNamesIndex % maxTasks;
+            String realDatabaseName = connection.retrieveRealDatabaseName(dbNames.get(dbNamesIndex));
+            taskDatabases.get(taskIndex).add(realDatabaseName);
+        }
+
+        // Create a task config for each task, assigning each a list of database names.
+        List<Map<String, String>> taskConfigs = new ArrayList<>();
+        for (int taskIndex = 0; taskIndex < maxTasks; taskIndex++) {
+            String databases = String.join(",", taskDatabases.get(taskIndex));
+            Map<String, String> taskProperties = new HashMap<>(properties);
+            taskProperties.put(DATABASE_NAMES.name(), databases);
+            taskConfigs.add(Collections.unmodifiableMap(taskProperties));
+        }
+
+        return taskConfigs;
     }
 
     @Override
@@ -90,8 +123,7 @@ public class SqlServerConnector extends RelationalBaseSourceConnector {
         final SqlServerConnectorConfig sqlServerConfig = new SqlServerConnectorConfig(config);
 
         if (Strings.isNullOrEmpty(sqlServerConfig.getDatabaseName())) {
-            throw new IllegalArgumentException("Either '" + SqlServerConnectorConfig.DATABASE_NAME
-                    + "' or '" + SqlServerConnectorConfig.DATABASE_NAMES
+            throw new IllegalArgumentException("Either '" + DATABASE_NAME + "' or '" + DATABASE_NAMES
                     + "' option must be specified");
         }
 

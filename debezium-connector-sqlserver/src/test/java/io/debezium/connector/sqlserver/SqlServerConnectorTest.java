@@ -6,6 +6,7 @@
 package io.debezium.connector.sqlserver;
 
 import static org.fest.assertions.Assertions.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +42,24 @@ public class SqlServerConnectorTest {
                 assertThat(value.errorMessages().get(0).startsWith("Unable to connect:"));
             }
         }
+    }
+
+    @Test
+    public void shouldThrowInvalidArgumentException() {
+        Map<String, String> config = new HashMap<>();
+        config.put(SqlServerConnectorConfig.HOSTNAME.name(), "narnia");
+        config.put(SqlServerConnectorConfig.PORT.name(), "4321");
+        config.put(SqlServerConnectorConfig.DATABASE_NAME.name(), "database1");
+        config.put(SqlServerConnectorConfig.USER.name(), "pikachu");
+        config.put(SqlServerConnectorConfig.PASSWORD.name(), "raichu");
+        config.put(SqlServerConnectorConfig.DATABASE_NAMES.name(), ",");
+
+        Config validated = connector.validate(config);
+        connector.start(config);
+
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            connector.taskConfigs(1);
+        });
     }
 
     @Test
