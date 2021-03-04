@@ -58,8 +58,6 @@ import io.debezium.util.Metronome;
  */
 public class SqlServerStreamingChangeEventSource implements StreamingChangeEventSource<SqlServerPartition, SqlServerOffsetContext> {
 
-    private static final Pattern MISSING_CDC_FUNCTION_CHANGES_ERROR = Pattern.compile("Invalid object name 'cdc.fn_cdc_get_all_changes_(.*)'\\.");
-
     private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerStreamingChangeEventSource.class);
 
     private static final Duration DEFAULT_INTERVAL_BETWEEN_COMMITS = Duration.ofMinutes(1);
@@ -131,7 +129,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
             boolean shouldIncreaseFromLsn = offsetContext.isSnapshotCompleted();
             while (context.isRunning()) {
                 commitTransaction();
-                final Lsn toLsn = getToLsn(dataConnection, lastProcessedPosition, maxTransactionsPerIteration);
+                final Lsn toLsn = getToLsn(dataConnection, partition.getDatabaseName(), lastProcessedPosition, maxTransactionsPerIteration);
 
                 // Shouldn't happen if the agent is running, but it is better to guard against such situation
                 if (!toLsn.isAvailable()) {
@@ -149,14 +147,14 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                 // Reading interval is inclusive so we need to move LSN forward but not for first
                 // run as TX might not be streamed completely
                 final Lsn fromLsn = lastProcessedPosition.getCommitLsn().isAvailable() && shouldIncreaseFromLsn
-                        ? dataConnection.incrementLsn(lastProcessedPosition.getCommitLsn())
+                        ? dataConnection.incrementLsn(partition.getDatabaseName(), lastProcessedPosition.getCommitLsn())
                         : lastProcessedPosition.getCommitLsn();
                 shouldIncreaseFromLsn = true;
 
                 while (!schemaChangeCheckpoints.isEmpty()) {
                     migrateTable(partition, schemaChangeCheckpoints, offsetContext);
                 }
-                if (!dataConnection.listOfNewChangeTables(fromLsn, toLsn).isEmpty()) {
+                if (!dataConnection.listOfNewChangeTables(partition.getDatabaseName(), fromLsn, toLsn).isEmpty()) {
                     final SqlServerChangeTable[] tables = getCdcTablesToQuery(partition, offsetContext);
                     tablesSlot.set(tables);
                     for (SqlServerChangeTable table : tables) {
@@ -167,7 +165,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                     }
                 }
                 try {
-                    dataConnection.getChangesForTables(tablesSlot.get(), fromLsn, toLsn, resultSets -> {
+                    dataConnection.getChangesForTables(partition.getDatabaseName(), tablesSlot.get(), fromLsn, toLsn, resultSets -> {
 
                         long eventSerialNoInInitialTx = 1;
                         final int tableCount = resultSets.length;
@@ -284,7 +282,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                     dataConnection.rollback();
                 }
                 catch (SQLException e) {
-                    tablesSlot.set(processErrorFromChangeTableQuery(e, tablesSlot.get()));
+                    tablesSlot.set(processErrorFromChangeTableQuery(e, tablesSlot.get(), partition));
                 }
             }
         }
@@ -307,15 +305,19 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
             throws InterruptedException, SQLException {
         final SqlServerChangeTable newTable = schemaChangeCheckpoints.poll();
         LOGGER.info("Migrating schema to {}", newTable);
-        Table tableSchema = metadataConnection.getTableSchemaFromTable(newTable);
+        Table tableSchema = metadataConnection.getTableSchemaFromTable(partition.getDatabaseName(), newTable);
         dispatcher.dispatchSchemaChangeEvent(newTable.getSourceTableId(),
                 new SqlServerSchemaChangeEventEmitter(partition, offsetContext, newTable, tableSchema,
                         SchemaChangeEventType.ALTER));
         newTable.setSourceTable(tableSchema);
     }
 
-    private SqlServerChangeTable[] processErrorFromChangeTableQuery(SQLException exception, SqlServerChangeTable[] currentChangeTables) throws Exception {
-        final Matcher m = MISSING_CDC_FUNCTION_CHANGES_ERROR.matcher(exception.getMessage());
+    private SqlServerChangeTable[] processErrorFromChangeTableQuery(SQLException exception, SqlServerChangeTable[] currentChangeTables,
+                                                                    SqlServerPartition partition)
+            throws Exception {
+        final String pattern = "Invalid object name '[#db].cdc.fn_cdc_get_all_changes_(.*)'\\."
+                .replace("[#db]", partition.getDatabaseName());
+        final Matcher m = Pattern.compile(pattern).matcher(exception.getMessage());
         if (m.matches()) {
             final String captureName = m.group(1);
             LOGGER.info("Table is no longer captured with capture instance {}", captureName);
@@ -327,7 +329,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
     }
 
     private SqlServerChangeTable[] getCdcTablesToQuery(SqlServerPartition partition, SqlServerOffsetContext offsetContext) throws SQLException, InterruptedException {
-        final Set<SqlServerChangeTable> cdcEnabledTables = dataConnection.listOfChangeTables();
+        final Set<SqlServerChangeTable> cdcEnabledTables = dataConnection.listOfChangeTables(partition.getDatabaseName());
         if (cdcEnabledTables.isEmpty()) {
             LOGGER.warn("No table has enabled CDC or security constraints prevents getting the list of change tables");
         }
@@ -362,7 +364,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                     futureTable = captures.get(0);
                 }
                 currentTable.setStopLsn(futureTable.getStartLsn());
-                futureTable.setSourceTable(dataConnection.getTableSchemaFromTable(futureTable));
+                futureTable.setSourceTable(dataConnection.getTableSchemaFromTable(partition.getDatabaseName(), futureTable));
                 tables.add(futureTable);
                 LOGGER.info("Multiple capture instances present for the same table: {} and {}", currentTable, futureTable);
             }
@@ -379,7 +381,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                                 partition,
                                 offsetContext,
                                 currentTable,
-                                dataConnection.getTableSchemaFromTable(currentTable),
+                                dataConnection.getTableSchemaFromTable(partition.getDatabaseName(), currentTable),
                                 SchemaChangeEventType.CREATE));
             }
 
@@ -396,20 +398,20 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
     /**
      * @return the log sequence number up until which the connector should query changes from the database.
      */
-    private Lsn getToLsn(SqlServerConnection connection, TxLogPosition lastProcessedPosition,
+    private Lsn getToLsn(SqlServerConnection connection, String databaseName, TxLogPosition lastProcessedPosition,
                          int maxTransactionsPerIteration)
             throws SQLException {
 
         if (maxTransactionsPerIteration == 0) {
-            return connection.getMaxTransactionLsn();
+            return connection.getMaxTransactionLsn(databaseName);
         }
 
         final Lsn fromLsn = lastProcessedPosition.getCommitLsn();
 
         if (!fromLsn.isAvailable()) {
-            return connection.getNthTransactionLsnFromBeginning(maxTransactionsPerIteration);
+            return connection.getNthTransactionLsnFromBeginning(databaseName, maxTransactionsPerIteration);
         }
 
-        return connection.getNthTransactionLsnFromLast(fromLsn, maxTransactionsPerIteration);
+        return connection.getNthTransactionLsnFromLast(databaseName, fromLsn, maxTransactionsPerIteration);
     }
 }

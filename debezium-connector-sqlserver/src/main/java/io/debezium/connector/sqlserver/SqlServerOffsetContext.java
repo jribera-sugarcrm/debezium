@@ -39,7 +39,6 @@ public class SqlServerOffsetContext implements OffsetContext {
                                   boolean snapshotCompleted, long eventSerialNo, TransactionContext transactionContext,
                                   IncrementalSnapshotContext<TableId> incrementalSnapshotContext) {
         sourceInfo = new SourceInfo(connectorConfig);
-
         sourceInfo.setCommitLsn(position.getCommitLsn());
         sourceInfo.setChangeLsn(position.getInTxLsn());
         sourceInfoSchema = sourceInfo.schema();

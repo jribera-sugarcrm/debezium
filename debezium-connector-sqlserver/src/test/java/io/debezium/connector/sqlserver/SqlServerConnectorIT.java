@@ -749,23 +749,24 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         TestHelper.waitForCdcRecord(connection, "tableb", rs -> rs.getInt("id") == expectedIds.get(expectedIds.size() - 1));
 
+        String databaseName = connection.config().getDatabase();
         Awaitility.await().atMost(30, TimeUnit.SECONDS).until(() -> {
             // Wait for max lsn to be available
-            if (!connection.getMaxLsn().isAvailable()) {
+            if (!connection.getMaxLsn(databaseName).isAvailable()) {
                 return false;
             }
 
             // verify pre-snapshot inserts have succeeded
             Map<String, Boolean> resultMap = new HashMap<>();
-            connection.listOfChangeTables().forEach(ct -> {
+            connection.listOfChangeTables(databaseName).forEach(ct -> {
                 final String tableName = ct.getChangeTableId().table();
                 if (tableName.endsWith("dbo_" + tableaCT) || tableName.endsWith("dbo_" + tablebCT)) {
                     try {
-                        final Lsn minLsn = connection.getMinLsn(tableName);
-                        final Lsn maxLsn = connection.getMaxLsn();
+                        final Lsn minLsn = connection.getMinLsn(databaseName, tableName);
+                        final Lsn maxLsn = connection.getMaxLsn(databaseName);
                         SqlServerChangeTable[] tables = Collections.singletonList(ct).toArray(new SqlServerChangeTable[]{});
                         final List<Integer> ids = new ArrayList<>();
-                        connection.getChangesForTables(tables, minLsn, maxLsn, resultsets -> {
+                        connection.getChangesForTables(databaseName, tables, minLsn, maxLsn, resultsets -> {
                             final ResultSet rs = resultsets[0];
                             while (rs.next()) {
                                 ids.add(rs.getInt("id"));
@@ -2074,9 +2075,10 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
             connection.execute("INSERT INTO tableb VALUES(" + id + ", 'b')");
         }
 
+        String databaseName = connection.config().getDatabase();
         Awaitility.await().atMost(30, TimeUnit.SECONDS).pollInterval(100, TimeUnit.MILLISECONDS).until(() -> {
             Testing.debug("Waiting for initial changes to be propagated to CDC structures");
-            return connection.getMaxLsn().isAvailable();
+            return connection.getMaxLsn(databaseName).isAvailable();
         });
 
         start(SqlServerConnector.class, config);
