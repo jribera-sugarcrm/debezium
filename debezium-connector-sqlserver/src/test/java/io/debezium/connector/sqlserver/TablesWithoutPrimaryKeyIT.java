@@ -97,8 +97,9 @@ public class TablesWithoutPrimaryKeyIT extends AbstractConnectorTest {
 
         consumeRecordsByTopic(1);
 
+        String databaseName = connection.config().getDatabase();
         TestHelper.waitForStreamingStarted();
-        TestHelper.waitForMaxLsnAvailable(connection);
+        TestHelper.waitForMaxLsnAvailable(connection, databaseName);
 
         connection.execute(DDL_STATEMENTS);
 
