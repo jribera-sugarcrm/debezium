@@ -56,7 +56,7 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
 
         final SnapshotContext<O> ctx;
         try {
-            ctx = prepare(context);
+            ctx = prepare(context, partition);
         }
         catch (Exception e) {
             LOGGER.error("Failed to initialize snapshot context.", e);
@@ -67,7 +67,7 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
 
         try {
             snapshotProgressListener.snapshotStarted();
-            return doExecute(context, previousOffset, ctx, snapshottingTask);
+            return doExecute(context, partition, previousOffset, ctx, snapshottingTask);
         }
         catch (InterruptedException e) {
             completedSuccessfully = false;
@@ -131,12 +131,13 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
      * pending transactions, releasing locks, etc.
      *
      * @param context contextual information for this source's execution
+     * @param partition
      * @param previousOffset previous offset restored from Kafka
      * @param snapshotContext mutable context information populated throughout the snapshot process
      * @param snapshottingTask immutable information about what tasks should be performed during snapshot
      * @return an indicator to the position at which the snapshot was taken
      */
-    protected abstract SnapshotResult<O> doExecute(ChangeEventSourceContext context, O previousOffset,
+    protected abstract SnapshotResult<O> doExecute(ChangeEventSourceContext context, P partition, O previousOffset,
                                                    SnapshotContext<O> snapshotContext, SnapshottingTask snapshottingTask)
             throws Exception;
 
@@ -148,7 +149,7 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
     /**
      * Prepares the taking of a snapshot and returns an initial {@link SnapshotContext}.
      */
-    protected abstract SnapshotContext<O> prepare(ChangeEventSourceContext changeEventSourceContext) throws Exception;
+    protected abstract SnapshotContext<O> prepare(ChangeEventSourceContext changeEventSourceContext, P partition) throws Exception;
 
     /**
      * Completes the snapshot, doing any required clean-up (resource disposal etc.).

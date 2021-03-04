@@ -46,7 +46,7 @@ public class OffsetReader<P extends Partition, O extends OffsetContext, L extend
             Map<String, Object> sourceOffset = sourceOffsets.get(sourcePartition);
             O offset = null;
             if (sourceOffset != null) {
-                offset = loader.load(sourceOffset);
+                offset = loader.load(sourcePartition, sourceOffset);
             }
             offsets.put(partition, offset);
         });
