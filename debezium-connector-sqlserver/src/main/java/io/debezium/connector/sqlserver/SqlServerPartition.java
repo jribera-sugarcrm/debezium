@@ -11,10 +11,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.debezium.connector.common.Partition;
 import io.debezium.util.Collect;
 
 public class SqlServerPartition implements Partition {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerPartition.class);
     private static final String SERVER_PARTITION_KEY = "server";
     private static final String DATABASE_PARTITION_KEY = "database";
 
@@ -71,8 +75,17 @@ public class SqlServerPartition implements Partition {
             String[] databaseNames = { connectorConfig.getDatabaseName() };
 
             return Arrays.stream(databaseNames)
-                    .map(databaseName -> connection.retrieveRealDatabaseName())
-                    .map(databaseName -> new SqlServerPartition(serverName, databaseName))
+                    .map(databaseName -> {
+                        try {
+                            return connection.retrieveRealDatabaseName(databaseName);
+                        }
+                        catch (RuntimeException e) {
+                            LOGGER.warn("Couldn't obtain real name for database {}", databaseName);
+                            return "";
+                        }
+                    })
+                    .filter(realDatabaseName -> !realDatabaseName.isEmpty())
+                    .map(realDatabaseName -> new SqlServerPartition(serverName, realDatabaseName))
                     .collect(Collectors.toSet());
         }
     }
