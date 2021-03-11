@@ -435,7 +435,7 @@ public abstract class RelationalSnapshotChangeEventSource<P extends Partition, O
 
         // try without catalog id, as this might or might not be populated based on the given connector
         if (overriddenSelect == null) {
-            overriddenSelect = connectorConfig.getSnapshotSelectOverridesByTable().get(new TableId(null, tableId.schema(), tableId.table()));
+            overriddenSelect = connectorConfig.getSnapshotSelectOverridesByTable().get(new TableId(tableId.catalog(), tableId.schema(), tableId.table()));
         }
 
         if (overriddenSelect != null) {
