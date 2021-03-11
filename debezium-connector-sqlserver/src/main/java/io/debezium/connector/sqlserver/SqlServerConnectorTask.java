@@ -89,11 +89,7 @@ public class SqlServerConnectorTask extends BaseSourceTask<SqlServerPartition, S
         Map<SqlServerPartition, SqlServerOffsetContext> offsets = getPreviousOffsets(
                 new SqlServerPartition.Provider(connectorConfig, metadataConnection),
                 new SqlServerOffsetContext.Loader(connectorConfig));
-        SqlServerOffsetContext previousOffset = getTheOnlyOffset(offsets);
-
-        if (previousOffset != null) {
-            schema.recover(previousOffset);
-        }
+        schema.recover(offsets);
 
         taskContext = new SqlServerTaskContext(connectorConfig, schema);
 
@@ -110,7 +106,7 @@ public class SqlServerConnectorTask extends BaseSourceTask<SqlServerPartition, S
 
         final SqlServerEventMetadataProvider metadataProvider = new SqlServerEventMetadataProvider();
 
-        final EventDispatcher<TableId> dispatcher = new EventDispatcher<>(
+        final EventDispatcher<SqlServerPartition, SqlServerOffsetContext, TableId> dispatcher = new EventDispatcher<>(
                 connectorConfig,
                 topicSelector,
                 schema,
