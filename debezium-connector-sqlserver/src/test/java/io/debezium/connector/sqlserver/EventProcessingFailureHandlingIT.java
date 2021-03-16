@@ -82,8 +82,8 @@ public class EventProcessingFailureHandlingIT extends AbstractConnectorTest {
         }
 
         SourceRecords records = consumeRecordsByTopic(RECORDS_PER_TABLE);
-        Assertions.assertThat(records.recordsForTopic("server1.dbo.tablea")).hasSize(RECORDS_PER_TABLE);
-        Assertions.assertThat(records.recordsForTopic("server1.dbo.tableb")).isNull();
+        Assertions.assertThat(records.recordsForTopic("server1.testDB.dbo.tablea")).hasSize(RECORDS_PER_TABLE);
+        Assertions.assertThat(records.recordsForTopic("server1.testDB.dbo.tableb")).isNull();
 
         Awaitility.await()
                 .alias("Found warning message in logs")
@@ -118,8 +118,8 @@ public class EventProcessingFailureHandlingIT extends AbstractConnectorTest {
         }
 
         SourceRecords records = consumeRecordsByTopic(RECORDS_PER_TABLE);
-        Assertions.assertThat(records.recordsForTopic("server1.dbo.tablea")).hasSize(RECORDS_PER_TABLE);
-        Assertions.assertThat(records.recordsForTopic("server1.dbo.tableb")).isNull();
+        Assertions.assertThat(records.recordsForTopic("server1.testDB.dbo.tablea")).hasSize(RECORDS_PER_TABLE);
+        Assertions.assertThat(records.recordsForTopic("server1.testDB.dbo.tableb")).isNull();
     }
 
     @Test
