@@ -28,12 +28,12 @@ public class IncrementalSnapshotWithRecompileIT extends AbstractIncrementalSnaps
 
     @Before
     public void before() throws SQLException {
-        TestHelper.createTestDatabase();
+        TestHelper.createMultipleTestDatabases();
         connection = TestHelper.testConnectionWithOptionRecompile();
         connection.execute(
                 "CREATE TABLE a (pk int primary key, aa int)",
                 "CREATE TABLE debezium_signal (id varchar(64), type varchar(32), data varchar(2048))");
-        TestHelper.enableTableCdc(connection, "debezium_signal");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE1, "debezium_signal");
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -49,7 +49,7 @@ public class IncrementalSnapshotWithRecompileIT extends AbstractIncrementalSnaps
     @Override
     protected void populateTable() throws SQLException {
         super.populateTable();
-        TestHelper.enableTableCdc(connection, "a");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE1, "a");
     }
 
     @Override
@@ -64,24 +64,24 @@ public class IncrementalSnapshotWithRecompileIT extends AbstractIncrementalSnaps
 
     @Override
     protected String topicName() {
-        return "server1.dbo.a";
+        return TestHelper.topicName(TestHelper.TEST_REAL_DATABASE1, "a");
     }
 
     @Override
     protected String tableName() {
-        return "testDB.dbo.a";
+        return TestHelper.tableName(TestHelper.TEST_REAL_DATABASE1, "a");
     }
 
     @Override
     protected String signalTableName() {
-        return "dbo.debezium_signal";
+        return TestHelper.tableName(TestHelper.TEST_REAL_DATABASE1, "debezium_signal");
     }
 
     @Override
     protected Builder config() {
         return TestHelper.defaultConfig()
                 .with(SqlServerConnectorConfig.SNAPSHOT_MODE, SnapshotMode.SCHEMA_ONLY)
-                .with(SqlServerConnectorConfig.SIGNAL_DATA_COLLECTION, "testDB.dbo.debezium_signal")
+                .with(SqlServerConnectorConfig.SIGNAL_DATA_COLLECTION, signalTableName())
                 .with(SqlServerConnectorConfig.INCREMENTAL_SNAPSHOT_OPTION_RECOMPILE, true);
     }
 }

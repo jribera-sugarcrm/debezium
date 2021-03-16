@@ -34,7 +34,7 @@ public class SqlServerConnectorTest {
         config.put(SqlServerConnectorConfig.SERVER_NAME.name(), "dbserver1");
         config.put(SqlServerConnectorConfig.HOSTNAME.name(), "narnia");
         config.put(SqlServerConnectorConfig.PORT.name(), "4321");
-        config.put(SqlServerConnectorConfig.DATABASE_NAME.name(), "sqlserver");
+        config.put(SqlServerConnectorConfig.DATABASE_NAMES.name(), "sqlserver");
         config.put(SqlServerConnectorConfig.USER.name(), "pikachu");
         config.put(SqlServerConnectorConfig.PASSWORD.name(), "raichu");
 
@@ -56,7 +56,6 @@ public class SqlServerConnectorTest {
         config.put(SqlServerConnectorConfig.SERVER_NAME.name(), "dbserver1");
         config.put(SqlServerConnectorConfig.HOSTNAME.name(), "narnia");
         config.put(SqlServerConnectorConfig.PORT.name(), "4321");
-        config.put(SqlServerConnectorConfig.DATABASE_NAME.name(), "database1");
         config.put(SqlServerConnectorConfig.USER.name(), "pikachu");
         config.put(SqlServerConnectorConfig.PASSWORD.name(), "raichu");
         config.put(SqlServerConnectorConfig.DATABASE_NAMES.name(), ",");
