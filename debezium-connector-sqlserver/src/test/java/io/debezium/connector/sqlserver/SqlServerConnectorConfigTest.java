@@ -27,31 +27,12 @@ public class SqlServerConnectorConfigTest {
     }
 
     @Test
-    public void onlyDatabaseName() {
-        final SqlServerConnectorConfig connectorConfig = new SqlServerConnectorConfig(
-                defaultConfig()
-                        .with(SqlServerConnectorConfig.DATABASE_NAME, "testDB")
-                        .build());
-        assertTrue(connectorConfig.validateAndRecord(SqlServerConnectorConfig.ALL_FIELDS, LOGGER::error));
-    }
-
-    @Test
     public void onlyDatabaseNames() {
         final SqlServerConnectorConfig connectorConfig = new SqlServerConnectorConfig(
                 defaultConfig()
                         .with(SqlServerConnectorConfig.DATABASE_NAMES, "testDB")
                         .build());
         assertTrue(connectorConfig.validateAndRecord(SqlServerConnectorConfig.ALL_FIELDS, LOGGER::error));
-    }
-
-    @Test
-    public void databaseNameAndDatabaseNames() {
-        final SqlServerConnectorConfig connectorConfig = new SqlServerConnectorConfig(
-                defaultConfig()
-                        .with(SqlServerConnectorConfig.DATABASE_NAME, "testDB")
-                        .with(SqlServerConnectorConfig.DATABASE_NAMES, "testDB")
-                        .build());
-        assertFalse(connectorConfig.validateAndRecord(SqlServerConnectorConfig.ALL_FIELDS, LOGGER::error));
     }
 
     private Configuration.Builder defaultConfig() {

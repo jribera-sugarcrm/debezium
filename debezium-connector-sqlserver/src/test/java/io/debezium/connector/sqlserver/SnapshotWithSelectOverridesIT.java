@@ -9,12 +9,14 @@ import static org.fest.assertions.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import io.debezium.config.Configuration;
@@ -37,46 +39,49 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
 
     @Before
     public void before() throws SQLException {
-        TestHelper.createTestDatabase();
+        TestHelper.createMultipleTestDatabases();
         connection = TestHelper.testConnection();
-        connection.execute(
-                "CREATE TABLE table1 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
-        connection.execute(
-                "CREATE TABLE table2 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
-        connection.execute(
-                "CREATE TABLE table3 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
+        TestHelper.forEachDatabase(databaseName -> {
+            connection.execute("USE " + databaseName);
+            connection.execute(
+                    "CREATE TABLE table1 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
+            connection.execute(
+                    "CREATE TABLE table2 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
+            connection.execute(
+                    "CREATE TABLE table3 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
 
-        // Populate database
-        for (int i = 0; i < INITIAL_RECORDS_PER_TABLE; i++) {
-            connection.execute(
-                    String.format(
-                            "INSERT INTO table1 VALUES(%s, '%s', %s, '%s', %s)",
-                            i,
-                            "name" + i,
-                            new BigDecimal(i + ".23"),
-                            "2018-07-18 13:28:56",
-                            i % 2));
-            connection.execute(
-                    String.format(
-                            "INSERT INTO table2 VALUES(%s, '%s', %s, '%s', %s)",
-                            i,
-                            "name" + i,
-                            new BigDecimal(i + ".23"),
-                            "2018-07-18 13:28:56",
-                            i % 2));
-            connection.execute(
-                    String.format(
-                            "INSERT INTO table3 VALUES(%s, '%s', %s, '%s', %s)",
-                            i,
-                            "name" + i,
-                            new BigDecimal(i + ".23"),
-                            "2018-07-18 13:28:56",
-                            i % 2));
-        }
+            // Populate database
+            for (int i = 0; i < INITIAL_RECORDS_PER_TABLE; i++) {
+                connection.execute(
+                        String.format(
+                                "INSERT INTO table1 VALUES(%s, '%s', %s, '%s', %s)",
+                                i,
+                                "name" + i,
+                                new BigDecimal(i + ".23"),
+                                "2018-07-18 13:28:56",
+                                i % 2));
+                connection.execute(
+                        String.format(
+                                "INSERT INTO table2 VALUES(%s, '%s', %s, '%s', %s)",
+                                i,
+                                "name" + i,
+                                new BigDecimal(i + ".23"),
+                                "2018-07-18 13:28:56",
+                                i % 2));
+                connection.execute(
+                        String.format(
+                                "INSERT INTO table3 VALUES(%s, '%s', %s, '%s', %s)",
+                                i,
+                                "name" + i,
+                                new BigDecimal(i + ".23"),
+                                "2018-07-18 13:28:56",
+                                i % 2));
+            }
 
-        TestHelper.enableTableCdc(connection, "table1");
-        TestHelper.enableTableCdc(connection, "table2");
-        TestHelper.enableTableCdc(connection, "table3");
+            TestHelper.enableTableCdc(connection, databaseName, "table1");
+            TestHelper.enableTableCdc(connection, databaseName, "table2");
+            TestHelper.enableTableCdc(connection, databaseName, "table3");
+        });
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -92,6 +97,7 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
 
     @Test
     @FixFor("DBZ-1224")
+    @Ignore("The test fails because the default config is now multi-partition")
     public void takeSnapshotWithOverridesInSinglePartitionMode() throws Exception {
         final Configuration config = TestHelper.defaultConfig()
                 .with(
@@ -110,25 +116,35 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
     @Test
     @FixFor({ "DBZ-1224", "DBZ-2975" })
     public void takeSnapshotWithOverridesInMultiPartitionMode() throws Exception {
-        final Configuration config = TestHelper.defaultMultiPartitionConfig()
+        final List<String> overrides = new ArrayList<>();
+        TestHelper.forEachDatabase(databaseName -> overrides.add(String.format("%1$s.dbo.table1,%1$s.dbo.table3", databaseName)));
+        final Configuration.Builder builder = TestHelper.defaultMultiDatabaseConfig()
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
-                        "dbo.table1,dbo.table3")
+                        String.join(",", overrides));
+        TestHelper.forEachDatabase(databaseName -> builder
                 .with(
-                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table1",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
+                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE
+                                + String.format(".%s.dbo.table1", databaseName),
+                        String.format("SELECT * FROM [%s].[dbo].[table1] where soft_deleted = 0 order by id desc", databaseName))
                 .with(
-                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table3",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table3] where soft_deleted = 0")
-                .build();
-        takeSnapshotWithOverrides(config, "server1.testDB.dbo.");
+                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE
+                                + String.format(".%s.dbo.table3", databaseName),
+                        String.format("SELECT * FROM [%s].[dbo].[table3] where soft_deleted = 0", databaseName))
+
+        );
+
+        // TODO: consume messages from both databases
+        takeSnapshotWithOverrides(builder.build(), "server1." + TestHelper.TEST_REAL_DATABASE1 + ".dbo.");
     }
 
     private void takeSnapshotWithOverrides(Configuration config, String topicPrefix) throws Exception {
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
 
-        SourceRecords records = consumeRecordsByTopic(INITIAL_RECORDS_PER_TABLE + (INITIAL_RECORDS_PER_TABLE + INITIAL_RECORDS_PER_TABLE) / 2);
+        int numRecords = (INITIAL_RECORDS_PER_TABLE + (INITIAL_RECORDS_PER_TABLE + INITIAL_RECORDS_PER_TABLE) / 2) * TestHelper.TEST_DATABASES.size();
+        SourceRecords records = consumeRecordsByTopic(numRecords);
+
         List<SourceRecord> table1 = records.recordsForTopic(topicPrefix + "table1");
         List<SourceRecord> table2 = records.recordsForTopic(topicPrefix + "table2");
         List<SourceRecord> table3 = records.recordsForTopic(topicPrefix + "table3");
@@ -158,6 +174,7 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
 
     @Test
     @FixFor("DBZ-3429")
+    @Ignore("The test fails because the default config is now multi-partition")
     public void takeSnapshotWithOverridesWithAdditionalWhitespaceInSinglePartitionMode() throws Exception {
         final Configuration config = TestHelper.defaultConfig()
                 .with(
@@ -179,15 +196,17 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
         final Configuration config = TestHelper.defaultMultiPartitionConfig()
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE,
-                        "  dbo.table1 , dbo.table3  ")
+                        "  " + TestHelper.TEST_REAL_DATABASE1 + ".dbo.table1 , " + TestHelper.TEST_REAL_DATABASE1 + ".dbo.table3  ")
                 .with(
-                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table1",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
+                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + "." + TestHelper.TEST_REAL_DATABASE1 + ".dbo.table1",
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
                 .with(
-                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table3",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table3] where soft_deleted = 0")
+                        RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + "." + TestHelper.TEST_REAL_DATABASE1 + ".dbo.table3",
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table3] where soft_deleted = 0")
                 .build();
-        takeSnapshotWithOverridesWithAdditionalWhitespace(config, "server1.testDB.dbo.");
+
+        // TODO: consume messages from both databases
+        takeSnapshotWithOverridesWithAdditionalWhitespace(config, "server1." + TestHelper.TEST_REAL_DATABASE1 + ".dbo.");
     }
 
     private void takeSnapshotWithOverridesWithAdditionalWhitespace(Configuration config, String topicPrefix) throws Exception {

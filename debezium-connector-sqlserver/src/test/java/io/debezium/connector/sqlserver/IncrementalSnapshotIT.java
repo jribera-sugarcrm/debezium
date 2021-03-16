@@ -29,12 +29,12 @@ public class IncrementalSnapshotIT extends AbstractIncrementalSnapshotWithSchema
 
     @Before
     public void before() throws SQLException {
-        TestHelper.createTestDatabase();
+        TestHelper.createMultipleTestDatabases();
         connection = TestHelper.testConnection();
         connection.execute(
                 "CREATE TABLE a (pk int primary key, aa int)",
                 "CREATE TABLE debezium_signal (id varchar(64), type varchar(32), data varchar(2048))");
-        TestHelper.enableTableCdc(connection, "debezium_signal");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_REAL_DATABASE1, "debezium_signal");
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -50,7 +50,7 @@ public class IncrementalSnapshotIT extends AbstractIncrementalSnapshotWithSchema
     @Override
     protected void populateTable() throws SQLException {
         super.populateTable();
-        TestHelper.enableTableCdc(connection, "a");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_REAL_DATABASE1, "a");
     }
 
     @Override
@@ -65,22 +65,22 @@ public class IncrementalSnapshotIT extends AbstractIncrementalSnapshotWithSchema
 
     @Override
     protected String topicName() {
-        return "server1.dbo.a";
+        return TestHelper.topicName(TestHelper.TEST_REAL_DATABASE1, "a");
     }
 
     @Override
     protected String tableName() {
-        return "testDB.dbo.a";
+        return tableName("a");
     }
 
     @Override
     protected String tableName(String table) {
-        return "testDB.dbo." + table;
+        return TestHelper.tableName(TestHelper.TEST_REAL_DATABASE1, table);
     }
 
     @Override
     protected String signalTableName() {
-        return "dbo.debezium_signal";
+        return tableName("debezium_signal");
     }
 
     @Override
@@ -110,13 +110,13 @@ public class IncrementalSnapshotIT extends AbstractIncrementalSnapshotWithSchema
 
     @Override
     protected void executeRenameTable(JdbcConnection connection, String newTable) throws SQLException {
-        TestHelper.disableTableCdc(connection, "a");
+        TestHelper.disableTableCdc(connection, TestHelper.TEST_DATABASE_1, "a");
         connection.setAutoCommit(false);
         logger.info(String.format("exec sp_rename '%s', '%s'", tableName(), "old_table"));
         connection.executeWithoutCommitting(String.format("exec sp_rename '%s', '%s'", tableName(), "old_table"));
         logger.info(String.format("exec sp_rename '%s', '%s'", tableName(newTable), "a"));
         connection.executeWithoutCommitting(String.format("exec sp_rename '%s', '%s'", tableName(newTable), "a"));
-        TestHelper.enableTableCdc(connection, "a", "a", Arrays.asList("pk", "aa", "c"));
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE_1, "a", "a", Arrays.asList("pk", "aa", "c"));
         connection.commit();
     }
 
@@ -129,7 +129,7 @@ public class IncrementalSnapshotIT extends AbstractIncrementalSnapshotWithSchema
     protected Builder config() {
         return TestHelper.defaultConfig()
                 .with(SqlServerConnectorConfig.SNAPSHOT_MODE, SnapshotMode.SCHEMA_ONLY)
-                .with(SqlServerConnectorConfig.SIGNAL_DATA_COLLECTION, "testDB.dbo.debezium_signal")
+                .with(SqlServerConnectorConfig.SIGNAL_DATA_COLLECTION, signalTableName())
                 .with(SqlServerConnectorConfig.INCREMENTAL_SNAPSHOT_CHUNK_SIZE, 250)
                 .with(SqlServerConnectorConfig.INCREMENTAL_SNAPSHOT_ALLOW_SCHEMA_CHANGES, true);
     }

@@ -36,16 +36,16 @@ public class SqlServerConnectorMultiPartitionModeIT extends AbstractConnectorTes
                 "CREATE TABLE tableB (id int primary key, colB varchar(32))",
                 "INSERT INTO tableA VALUES(1, 'a1')",
                 "INSERT INTO tableB VALUES(2, 'b')");
-        TestHelper.enableTableCdc(connection, "tableA");
-        TestHelper.enableTableCdc(connection, "tableB");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE_1, "tableA");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE_1, "tableB");
         connection.execute(
                 "USE " + TestHelper.TEST_DATABASE_2,
                 "CREATE TABLE tableA (id int primary key, colA varchar(32))",
                 "CREATE TABLE tableC (id int primary key, colC varchar(32))",
                 "INSERT INTO tableA VALUES(3, 'a2')",
                 "INSERT INTO tableC VALUES(4, 'c')");
-        TestHelper.enableTableCdc(connection, "tableA");
-        TestHelper.enableTableCdc(connection, "tableC");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE_2, "tableA");
+        TestHelper.enableTableCdc(connection, TestHelper.TEST_DATABASE_2, "tableC");
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -94,7 +94,7 @@ public class SqlServerConnectorMultiPartitionModeIT extends AbstractConnectorTes
                 "USE " + TestHelper.TEST_DATABASE_2,
                 "INSERT INTO tableA VALUES(6, 'a2s')");
 
-        TestHelper.waitForTaskStreamingStarted();
+        TestHelper.waitForStreamingStarted();
         records = consumeRecordsByTopic(2);
 
         tableA1 = records.recordsForTopic(TestHelper.topicName(TestHelper.TEST_DATABASE_1, "tableA"));

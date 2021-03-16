@@ -6,7 +6,6 @@
 package io.debezium.connector.sqlserver;
 
 import static io.debezium.config.CommonConnectorConfig.TASK_ID;
-import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAME;
 import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAMES;
 
 import java.sql.SQLException;
@@ -119,8 +118,7 @@ public class SqlServerConnector extends RelationalBaseSourceConnector {
 
     @Override
     protected void validateConnection(Map<String, ConfigValue> configValues, Configuration config) {
-        if (!configValues.get(DATABASE_NAME.name()).errorMessages().isEmpty()
-                || !configValues.get(DATABASE_NAMES.name()).errorMessages().isEmpty()) {
+        if (!configValues.get(DATABASE_NAMES.name()).errorMessages().isEmpty()) {
             return;
         }
 
