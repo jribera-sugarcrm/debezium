@@ -5,6 +5,8 @@
  */
 package io.debezium.connector.sqlserver;
 
+import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.TASK_DATABASE_NAMES;
+
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -14,6 +16,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.debezium.config.Configuration;
 import io.debezium.connector.common.Partition;
 import io.debezium.util.Collect;
 
@@ -61,10 +64,12 @@ public class SqlServerPartition implements Partition {
 
     static class Provider implements Partition.Provider<SqlServerPartition> {
         private final SqlServerConnectorConfig connectorConfig;
+        private final Configuration taskConfig;
         private final SqlServerConnection connection;
 
-        Provider(SqlServerConnectorConfig connectorConfig, SqlServerConnection connection) {
+        Provider(SqlServerConnectorConfig connectorConfig, Configuration taskConfig, SqlServerConnection connection) {
             this.connectorConfig = connectorConfig;
+            this.taskConfig = taskConfig;
             this.connection = connection;
         }
 
@@ -72,7 +77,7 @@ public class SqlServerPartition implements Partition {
         public Set<SqlServerPartition> getPartitions() {
             String serverName = connectorConfig.getLogicalName();
 
-            String[] databaseNames = { connectorConfig.getDatabaseName() };
+            String[] databaseNames = taskConfig.getString(TASK_DATABASE_NAMES.name()).split(",");
 
             return Arrays.stream(databaseNames)
                     .map(databaseName -> {
