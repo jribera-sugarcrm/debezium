@@ -119,6 +119,7 @@ public class TestHelper {
                 (field, value) -> builder.with(SqlServerConnectorConfig.DATABASE_CONFIG_PREFIX + field, value));
 
         return builder.with(RelationalDatabaseConnectorConfig.SERVER_NAME, "server1")
+                .with(SqlServerConnectorConfig.DATABASE_NAMES.name(), TEST_DATABASE)
                 .with(SqlServerConnectorConfig.DATABASE_HISTORY, FileDatabaseHistory.class)
                 .with(FileDatabaseHistory.FILE_PATH, DB_HISTORY_PATH)
                 .with(RelationalDatabaseConnectorConfig.INCLUDE_SCHEMA_CHANGES, false);

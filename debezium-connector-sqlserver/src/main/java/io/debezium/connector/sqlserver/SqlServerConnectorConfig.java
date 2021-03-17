@@ -225,16 +225,12 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
             .withValidation(Field::isOptional)
             .withDescription("The SQL Server instance name");
 
-    public static final Field DATABASE_NAME = RelationalDatabaseConnectorConfig.DATABASE_NAME
-            .withNoValidation()
-            .withValidation(SqlServerConnectorConfig::validateDatabaseName);
-
     public static final Field DATABASE_NAMES = Field.create(DATABASE_CONFIG_PREFIX + "names")
             .withDisplayName("Databases")
             .withType(Type.LIST)
             .withWidth(Width.MEDIUM)
             .withImportance(Importance.HIGH)
-            .withValidation(SqlServerConnectorConfig::validateDatabaseNames)
+            .required()
             .withDescription("The names of the databases from which the connector should capture changes");
 
     /**
@@ -320,7 +316,6 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
     private static final ConfigDefinition CONFIG_DEFINITION = HistorizedRelationalDatabaseConnectorConfig.CONFIG_DEFINITION.edit()
             .name("SQL Server")
             .type(
-                    DATABASE_NAME,
                     DATABASE_NAMES,
                     HOSTNAME,
                     PORT,
@@ -480,27 +475,5 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
     @Override
     public String getConnectorName() {
         return Module.name();
-    }
-
-    private static int validateDatabaseName(Configuration config, Field field, Field.ValidationOutput problems) {
-        if (!config.hasKey(field) && !config.hasKey(DATABASE_NAMES)) {
-            problems.accept(field, null, "Either " + DATABASE_NAME + " or " + DATABASE_NAMES + " must be specified");
-            return 1;
-        }
-
-        return 0;
-    }
-
-    private static int validateDatabaseNames(Configuration config, Field field, Field.ValidationOutput problems) {
-        String databaseNames = config.getString(field);
-        int count = 0;
-        if (databaseNames != null) {
-            if (config.hasKey(DATABASE_NAME)) {
-                problems.accept(field, null, "Cannot be specified alongside " + DATABASE_NAME);
-                ++count;
-            }
-        }
-
-        return count;
     }
 }
