@@ -6,6 +6,7 @@
 package io.debezium.pipeline;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -86,9 +87,6 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
 
     public synchronized void start(CdcSourceTaskContext taskContext, ChangeEventQueueMetrics changeEventQueueMetrics,
                                    EventMetadataProvider metadataProvider) {
-        final P partition = previousOffsets.getTheOnlyPartition();
-        final O previousOffset = previousOffsets.getTheOnlyOffset();
-
         AtomicReference<LoggingContext.PreviousContext> previousLogContext = new AtomicReference<>();
         try {
             this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
@@ -106,25 +104,37 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
                     ChangeEventSourceContext context = new ChangeEventSourceContextImpl();
                     LOGGER.info("Context created");
 
+                    Map<P, O> partitionState = new HashMap<>();
+
                     SnapshotChangeEventSource<P, O> snapshotSource = changeEventSourceFactory.getSnapshotChangeEventSource(snapshotMetrics);
-                    CatchUpStreamingResult catchUpStreamingResult = executeCatchUpStreaming(context, snapshotSource, partition, previousOffset);
-                    if (catchUpStreamingResult.performedCatchUpStreaming) {
-                        streamingConnected(false);
-                        commitOffsetLock.lock();
-                        streamingSource = null;
-                        commitOffsetLock.unlock();
-                    }
-                    eventDispatcher.setEventListener(snapshotMetrics);
-                    SnapshotResult<O> snapshotResult = snapshotSource.execute(context, partition, previousOffset);
-                    LOGGER.info("Snapshot ended with {}", snapshotResult);
+                    for (Map.Entry<P, O> entry : previousOffsets.getOffsets().entrySet()) {
+                        P partition = entry.getKey();
+                        O previousOffset = entry.getValue();
+                        CatchUpStreamingResult catchUpStreamingResult = executeCatchUpStreaming(context, snapshotSource, partition, previousOffset);
+                        if (catchUpStreamingResult.performedCatchUpStreaming) {
+                            streamingConnected(false);
+                            commitOffsetLock.lock();
+                            streamingSource = null;
+                            commitOffsetLock.unlock();
+                        }
+                        eventDispatcher.setEventListener(snapshotMetrics);
+                        SnapshotResult<O> snapshotResult = snapshotSource.execute(context, partition, previousOffset);
+                        LOGGER.info("Snapshot ended with {}", snapshotResult);
 
-                    if (snapshotResult.getStatus() == SnapshotResultStatus.COMPLETED || schema.tableInformationComplete()) {
-                        schema.assureNonEmptySchema();
+                        if (snapshotResult.getStatus() == SnapshotResultStatus.COMPLETED || schema.tableInformationComplete()) {
+                            schema.assureNonEmptySchema();
+                        }
+                        partitionState.put(partition, snapshotResult.getOffset());
                     }
 
-                    if (running && snapshotResult.isCompletedOrSkipped()) {
-                        previousLogContext.set(taskContext.configureLoggingContext("streaming"));
-                        streamEvents(context, partition, snapshotResult.getOffset());
+                    for (Map.Entry<P, O> entry : partitionState.entrySet()) {
+                        P partition = entry.getKey();
+                        O previousOffset = entry.getValue();
+
+                        if (running) {
+                            previousLogContext.set(taskContext.configureLoggingContext("streaming"));
+                            streamEvents(context, partition, previousOffset);
+                        }
                     }
                 }
                 catch (InterruptedException e) {
