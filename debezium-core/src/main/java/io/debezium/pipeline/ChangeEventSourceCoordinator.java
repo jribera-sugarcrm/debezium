@@ -155,7 +155,7 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
 
                         boolean streamedEvents = false;
                         for (StreamingResult<O> streamingResult : partitionStreamingResults.values()) {
-                            if (!streamingResult.hasNoEvents()) {
+                            if (streamingResult.eventsStreamed()) {
                                 streamedEvents = true;
                                 break;
                             }
