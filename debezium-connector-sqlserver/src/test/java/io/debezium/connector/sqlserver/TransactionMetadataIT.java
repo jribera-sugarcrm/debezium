@@ -56,12 +56,14 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
     public void before() throws SQLException {
         TestHelper.createTestDatabase();
         connection = TestHelper.testConnection();
+        String databaseName = TestHelper.TEST_REAL_DATABASE1;
+        connection.execute("USE " + databaseName);
         connection.execute(
                 "CREATE TABLE tablea (id int primary key, cola varchar(30))",
                 "CREATE TABLE tableb (id int primary key, colb varchar(30))",
                 "INSERT INTO tablea VALUES(1, 'a')");
-        TestHelper.enableTableCdc(connection, "tablea");
-        TestHelper.enableTableCdc(connection, "tableb");
+        TestHelper.enableTableCdc(connection, databaseName, "tablea");
+        TestHelper.enableTableCdc(connection, databaseName, "tableb");
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -87,6 +89,8 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
 
+        String databaseName = TestHelper.TEST_REAL_DATABASE1;
+
         // Testing.Print.enable();
         // Wait for snapshot completion
         consumeRecordsByTopic(1);
@@ -105,9 +109,9 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
 
         // BEGIN, data, END, BEGIN, data
         final SourceRecords records = consumeRecordsByTopic(1 + RECORDS_PER_TABLE * 2 + 1 + 1 + 1);
-        final List<SourceRecord> tableA = records.recordsForTopic("server1.testDB.dbo.tablea");
-        final List<SourceRecord> tableB = records.recordsForTopic("server1.testDB.dbo.tableb");
-        final List<SourceRecord> tx = records.recordsForTopic("server1.transaction");
+        final List<SourceRecord> tableA = records.recordsForTopic(TestHelper.topicName(databaseName, "tablea"));
+        final List<SourceRecord> tableB = records.recordsForTopic(TestHelper.topicName(databaseName, "tableb"));
+        final List<SourceRecord> tx = records.recordsForTopic(TestHelper.TEST_SERVER_NAME + ".transaction");
         Assertions.assertThat(tableA).hasSize(RECORDS_PER_TABLE);
         Assertions.assertThat(tableB).hasSize(RECORDS_PER_TABLE + 1);
         Assertions.assertThat(tx).hasSize(3);
@@ -122,7 +126,8 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
         }
 
         assertEndTransaction(all.get(2 * RECORDS_PER_TABLE + 1), txId, 2 * RECORDS_PER_TABLE,
-                Collect.hashMapOf("testDB.dbo.tablea", RECORDS_PER_TABLE, "testDB.dbo.tableb", RECORDS_PER_TABLE));
+                Collect.hashMapOf(TestHelper.tableName(databaseName, "tablea"), RECORDS_PER_TABLE,
+                        TestHelper.tableName(databaseName, "tableb"), RECORDS_PER_TABLE));
         stopConnector();
     }
 
@@ -139,6 +144,8 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
 
         // Testing.Print.enable();
 
+        String databaseName = TestHelper.TEST_REAL_DATABASE1;
+
         if (restartJustAfterSnapshot) {
             start(SqlServerConnector.class, config);
             assertConnectorIsRunning();
@@ -149,19 +156,19 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
             connection.execute("INSERT INTO tablea VALUES(-1, '-a')");
 
             Awaitility.await().atMost(30, TimeUnit.SECONDS).until(() -> {
-                if (!connection.getMaxLsn(TestHelper.TEST_DATABASE).isAvailable()) {
+                if (!connection.getMaxLsn(databaseName).isAvailable()) {
                     return false;
                 }
 
-                for (SqlServerChangeTable ct : connection.listOfChangeTables(TestHelper.TEST_DATABASE)) {
+                for (SqlServerChangeTable ct : connection.listOfChangeTables(databaseName)) {
                     final String tableName = ct.getChangeTableId().table();
                     if (tableName.endsWith("dbo_" + connection.getNameOfChangeTable("tablea"))) {
                         try {
-                            final Lsn minLsn = connection.getMinLsn(TestHelper.TEST_DATABASE, tableName);
-                            final Lsn maxLsn = connection.getMaxLsn(TestHelper.TEST_DATABASE);
+                            final Lsn minLsn = connection.getMinLsn(databaseName, tableName);
+                            final Lsn maxLsn = connection.getMaxLsn(databaseName);
                             final AtomicReference<Boolean> found = new AtomicReference<>(false);
                             SqlServerChangeTable[] tables = Collections.singletonList(ct).toArray(new SqlServerChangeTable[]{});
-                            connection.getChangesForTables(TestHelper.TEST_DATABASE, tables, minLsn, maxLsn, resultsets -> {
+                            connection.getChangesForTables(databaseName, tables, minLsn, maxLsn, resultsets -> {
                                 final ResultSet rs = resultsets[0];
                                 while (rs.next()) {
                                     if (rs.getInt("id") == -1) {
@@ -182,7 +189,7 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
         }
 
         start(SqlServerConnector.class, config, record -> {
-            if (!"server1.testDB.dbo.tablea.Envelope".equals(record.valueSchema().name())) {
+            if (!TestHelper.schemaName(databaseName, "tablea", "Envelope").equals(record.valueSchema().name())) {
                 return false;
             }
             final Struct envelope = (Struct) record.value();
@@ -232,7 +239,7 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
         assertThat(records).hasSize(expectedRecords);
 
         if (firstTxId != null) {
-            assertEndTransaction(records.get(0), firstTxId, 1, Collect.hashMapOf("testDB.dbo.tablea", 1));
+            assertEndTransaction(records.get(0), firstTxId, 1, Collect.hashMapOf(TestHelper.tableName(databaseName, "tablea"), 1));
         }
         final String batchTxId = assertBeginTransaction(records.get(txBeginIndex));
 
@@ -252,8 +259,8 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
         records = sourceRecords.allRecordsInOrder();
         assertThat(records).hasSize(RECORDS_PER_TABLE);
 
-        List<SourceRecord> tableA = sourceRecords.recordsForTopic("server1.testDB.dbo.tablea");
-        List<SourceRecord> tableB = sourceRecords.recordsForTopic("server1.testDB.dbo.tableb");
+        List<SourceRecord> tableA = sourceRecords.recordsForTopic(TestHelper.topicName(databaseName, "tablea"));
+        List<SourceRecord> tableB = sourceRecords.recordsForTopic(TestHelper.topicName(databaseName, "tableb"));
         for (int i = 0; i < RECORDS_PER_TABLE / 2; i++) {
             final int id = HALF_ID + i;
             final SourceRecord recordA = tableA.get(i);
@@ -288,15 +295,16 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
 
         // END of previous TX, data records, BEGIN of TX for every pair of record, END of TX for every pair of record but last
         sourceRecords = consumeRecordsByTopic(1 + RECORDS_PER_TABLE * TABLES + (2 * RECORDS_PER_TABLE - 1));
-        tableA = sourceRecords.recordsForTopic("server1.testDB.dbo.tablea");
-        tableB = sourceRecords.recordsForTopic("server1.testDB.dbo.tableb");
-        List<SourceRecord> txMetadata = sourceRecords.recordsForTopic("server1.transaction");
+        tableA = sourceRecords.recordsForTopic(TestHelper.topicName(databaseName, "tablea"));
+        tableB = sourceRecords.recordsForTopic(TestHelper.topicName(databaseName, "tableb"));
+        List<SourceRecord> txMetadata = sourceRecords.recordsForTopic(TestHelper.TEST_SERVER_NAME + ".transaction");
 
         Assertions.assertThat(tableA).hasSize(RECORDS_PER_TABLE);
         Assertions.assertThat(tableB).hasSize(RECORDS_PER_TABLE);
         Assertions.assertThat(txMetadata).hasSize(1 + 2 * RECORDS_PER_TABLE - 1);
         assertEndTransaction(txMetadata.get(0), batchTxId, 2 * RECORDS_PER_TABLE,
-                Collect.hashMapOf("testDB.dbo.tablea", RECORDS_PER_TABLE, "testDB.dbo.tableb", RECORDS_PER_TABLE));
+                Collect.hashMapOf(TestHelper.tableName(databaseName, "tablea"), RECORDS_PER_TABLE,
+                        TestHelper.tableName(databaseName, "tableb"), RECORDS_PER_TABLE));
 
         for (int i = 0; i < RECORDS_PER_TABLE; i++) {
             final int id = i + ID_RESTART;
@@ -321,7 +329,9 @@ public class TransactionMetadataIT extends AbstractConnectorTest {
             assertRecordTransactionMetadata(recordA, txId, 1, 1);
             assertRecordTransactionMetadata(recordB, txId, 2, 1);
             if (i < RECORDS_PER_TABLE - 1) {
-                assertEndTransaction(txMetadata.get(2 * i + 2), txId, 2, Collect.hashMapOf("testDB.dbo.tablea", 1, "testDB.dbo.tableb", 1));
+                assertEndTransaction(txMetadata.get(2 * i + 2), txId, 2,
+                        Collect.hashMapOf(TestHelper.tableName(databaseName, "tablea"), 1,
+                                TestHelper.tableName(databaseName, "tableb"), 1));
             }
         }
     }

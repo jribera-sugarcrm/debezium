@@ -40,6 +40,8 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
     public void before() throws SQLException {
         TestHelper.createTestDatabase();
         connection = TestHelper.testConnection();
+        String databaseName = TestHelper.TEST_REAL_DATABASE1;
+        connection.execute("USE " + databaseName);
         connection.execute(
                 "CREATE TABLE table1 (id int, name varchar(30), price decimal(8,2), ts datetime2(0), soft_deleted bit, primary key(id))");
         connection.execute(
@@ -75,9 +77,9 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
                             i % 2));
         }
 
-        TestHelper.enableTableCdc(connection, "table1");
-        TestHelper.enableTableCdc(connection, "table2");
-        TestHelper.enableTableCdc(connection, "table3");
+        TestHelper.enableTableCdc(connection, databaseName, "table1");
+        TestHelper.enableTableCdc(connection, databaseName, "table2");
+        TestHelper.enableTableCdc(connection, databaseName, "table3");
 
         initializeConnectorTestFramework();
         Testing.Files.delete(TestHelper.DB_HISTORY_PATH);
@@ -118,10 +120,10 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
                         "dbo.table1,dbo.table3")
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table1",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table3",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table3] where soft_deleted = 0")
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table3] where soft_deleted = 0")
                 .build();
         takeSnapshotWithOverrides(config);
     }
@@ -131,9 +133,9 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
         assertConnectorIsRunning();
 
         SourceRecords records = consumeRecordsByTopic(INITIAL_RECORDS_PER_TABLE + (INITIAL_RECORDS_PER_TABLE + INITIAL_RECORDS_PER_TABLE) / 2);
-        List<SourceRecord> table1 = records.recordsForTopic("server1.testDB.dbo.table1");
-        List<SourceRecord> table2 = records.recordsForTopic("server1.testDB.dbo.table2");
-        List<SourceRecord> table3 = records.recordsForTopic("server1.testDB.dbo.table3");
+        List<SourceRecord> table1 = records.recordsForTopic(TestHelper.topicName(TestHelper.TEST_REAL_DATABASE1, "table1"));
+        List<SourceRecord> table2 = records.recordsForTopic(TestHelper.topicName(TestHelper.TEST_REAL_DATABASE1, "table2"));
+        List<SourceRecord> table3 = records.recordsForTopic(TestHelper.topicName(TestHelper.TEST_REAL_DATABASE1, "table3"));
 
         // soft_deleted records should be excluded for table1 and table3
         assertThat(table1).hasSize(INITIAL_RECORDS_PER_TABLE / 2);
@@ -185,10 +187,10 @@ public class SnapshotWithSelectOverridesIT extends AbstractConnectorTest {
                         "  dbo.table1 , dbo.table3  ")
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table1",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table1] where soft_deleted = 0 order by id desc")
                 .with(
                         RelationalDatabaseConnectorConfig.SNAPSHOT_SELECT_STATEMENT_OVERRIDES_BY_TABLE + ".dbo.table3",
-                        "SELECT * FROM [" + TestHelper.TEST_DATABASE + "].[dbo].[table3] where soft_deleted = 0")
+                        "SELECT * FROM [" + TestHelper.TEST_REAL_DATABASE1 + "].[dbo].[table3] where soft_deleted = 0")
                 .build();
         takeSnapshotWithOverridesWithAdditionalWhitespace(config);
     }
