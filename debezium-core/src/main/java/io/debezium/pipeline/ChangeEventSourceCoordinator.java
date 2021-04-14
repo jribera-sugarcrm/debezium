@@ -8,6 +8,7 @@ package io.debezium.pipeline;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -89,8 +90,10 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
 
         AtomicReference<LoggingContext.PreviousContext> previousLogContext = new AtomicReference<>();
         try {
-            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
-            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
+            Set<P> partitions = this.previousOffsets.getPartitions();
+
+            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
+            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
             running = true;
 
             // run the snapshot source on a separate thread so start() won't block
@@ -167,13 +170,13 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
     }
 
     protected void streamEvents(ChangeEventSourceContext context, P partition, O offsetContext) throws InterruptedException {
-        initStreamEvents(offsetContext);
+        initStreamEvents(partition, offsetContext);
         LOGGER.info("Starting streaming");
         streamingSource.execute(context, partition, offsetContext);
         LOGGER.info("Finished streaming");
     }
 
-    protected void initStreamEvents(O offsetContext) throws InterruptedException {
+    protected void initStreamEvents(P partition, O offsetContext) throws InterruptedException {
         streamingSource = changeEventSourceFactory.getStreamingChangeEventSource();
         eventDispatcher.setEventListener(streamingMetrics);
         streamingConnected(true);
@@ -182,7 +185,9 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
         final Optional<IncrementalSnapshotChangeEventSource<? extends DataCollectionId>> incrementalSnapshotChangeEventSource = changeEventSourceFactory
                 .getIncrementalSnapshotChangeEventSource(offsetContext, snapshotMetrics, snapshotMetrics);
         eventDispatcher.setIncrementalSnapshotChangeEventSource(incrementalSnapshotChangeEventSource);
-        incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(offsetContext));
+
+        incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(partition, offsetContext));
+
     }
 
     public void commitOffset(Map<String, ?> offset) {

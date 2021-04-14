@@ -80,10 +80,10 @@ public class SqlServerChangeEventSourceCoordinator extends ChangeEventSourceCoor
     private void streamEvents(ChangeEventSourceContext context, Offsets<SqlServerPartition, SqlServerOffsetContext> streamingOffsets)
             throws InterruptedException {
 
-        // TODO: Determine how to do incremental snapshots with multiple partitions but for now just use the first offset
-        SqlServerOffsetContext offsetContext = streamingOffsets.getOffsets().values().stream().findFirst().get();
+        for (Map.Entry<SqlServerPartition, SqlServerOffsetContext> entry : streamingOffsets) {
+            initStreamEvents(entry.getKey(), entry.getValue());
+        }
 
-        initStreamEvents(offsetContext);
         final Metronome metronome = Metronome.sleeper(pollInterval, clock);
 
         LOGGER.info("Starting streaming");

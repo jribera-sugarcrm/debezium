@@ -149,14 +149,15 @@ public class EventDispatcher<T extends DataCollectionId> {
                 .build();
     }
 
-    public void dispatchSnapshotEvent(T dataCollectionId, ChangeRecordEmitter changeRecordEmitter, SnapshotReceiver receiver) throws InterruptedException {
+    public void dispatchSnapshotEvent(Partition partition, T dataCollectionId, ChangeRecordEmitter changeRecordEmitter, SnapshotReceiver receiver)
+            throws InterruptedException {
         // TODO Handle Heartbeat
 
         DataCollectionSchema dataCollectionSchema = schema.schemaFor(dataCollectionId);
 
         // TODO handle as per inconsistent schema info option
         if (dataCollectionSchema == null) {
-            errorOnMissingSchema(dataCollectionId, changeRecordEmitter);
+            errorOnMissingSchema(partition, dataCollectionId, changeRecordEmitter);
         }
 
         changeRecordEmitter.emitChangeRecords(dataCollectionSchema, new Receiver() {
@@ -169,7 +170,7 @@ public class EventDispatcher<T extends DataCollectionId> {
                                      OffsetContext offset,
                                      ConnectHeaders headers)
                     throws InterruptedException {
-                eventListener.onEvent(dataCollectionSchema.id(), offset, key, value);
+                eventListener.onEvent(partition, dataCollectionSchema.id(), offset, key, value);
                 receiver.changeRecord(partition, dataCollectionSchema, operation, key, value, offset, headers);
             }
         });
@@ -192,12 +193,12 @@ public class EventDispatcher<T extends DataCollectionId> {
      *
      * @return {@code true} if an event was dispatched (i.e. sent to the message broker), {@code false} otherwise.
      */
-    public boolean dispatchDataChangeEvent(T dataCollectionId, ChangeRecordEmitter changeRecordEmitter) throws InterruptedException {
+    public boolean dispatchDataChangeEvent(Partition partition, T dataCollectionId, ChangeRecordEmitter changeRecordEmitter) throws InterruptedException {
         try {
             boolean handled = false;
             if (!filter.isIncluded(dataCollectionId)) {
                 LOGGER.trace("Filtered data change event for {}", dataCollectionId);
-                eventListener.onFilteredEvent("source = " + dataCollectionId);
+                eventListener.onFilteredEvent(partition, "source = " + dataCollectionId);
                 dispatchFilteredEvent(changeRecordEmitter.getPartition(), changeRecordEmitter.getOffset());
             }
             else {
@@ -205,7 +206,8 @@ public class EventDispatcher<T extends DataCollectionId> {
 
                 // TODO handle as per inconsistent schema info option
                 if (dataCollectionSchema == null) {
-                    final Optional<DataCollectionSchema> replacementSchema = inconsistentSchemaHandler.handle(dataCollectionId, changeRecordEmitter);
+                    final Optional<DataCollectionSchema> replacementSchema = inconsistentSchemaHandler.handle(partition,
+                            dataCollectionId, changeRecordEmitter);
                     if (!replacementSchema.isPresent()) {
                         return false;
                     }
@@ -228,7 +230,7 @@ public class EventDispatcher<T extends DataCollectionId> {
 
                         if (neverSkip || !skippedOperations.contains(operation)) {
                             transactionMonitor.dataEvent(partition, dataCollectionId, offset, key, value);
-                            eventListener.onEvent(dataCollectionId, offset, key, value);
+                            eventListener.onEvent(partition, dataCollectionId, offset, key, value);
                             if (incrementalSnapshotChangeEventSource != null) {
                                 incrementalSnapshotChangeEventSource.processMessage(partition, dataCollectionId, key, offset);
                             }
@@ -285,12 +287,12 @@ public class EventDispatcher<T extends DataCollectionId> {
         }
     }
 
-    public void dispatchConnectorEvent(ConnectorEvent event) {
-        eventListener.onConnectorEvent(event);
+    public void dispatchConnectorEvent(Partition partition, ConnectorEvent event) {
+        eventListener.onConnectorEvent(partition, event);
     }
 
-    public Optional<DataCollectionSchema> errorOnMissingSchema(T dataCollectionId, ChangeRecordEmitter changeRecordEmitter) {
-        eventListener.onErroneousEvent("source = " + dataCollectionId);
+    public Optional<DataCollectionSchema> errorOnMissingSchema(Partition partition, T dataCollectionId, ChangeRecordEmitter changeRecordEmitter) {
+        eventListener.onErroneousEvent(partition, "source = " + dataCollectionId);
         throw new IllegalArgumentException("No metadata registered for captured table " + dataCollectionId);
     }
 
@@ -510,7 +512,7 @@ public class EventDispatcher<T extends DataCollectionId> {
                     keySchema, key,
                     dataCollectionSchema.getEnvelopeSchema().schema(), value,
                     null, headers);
-            dataListener.onEvent(dataCollectionSchema.id(), offsetContext, keySchema, value);
+            dataListener.onEvent(partition, dataCollectionSchema.id(), offsetContext, keySchema, value);
             queue.enqueue(changeEventCreator.createDataChangeEvent(record));
         }
 
@@ -578,7 +580,7 @@ public class EventDispatcher<T extends DataCollectionId> {
         /**
          * @return collection schema if the schema was updated and event can be processed, {@code empty} to skip the processing
          */
-        Optional<DataCollectionSchema> handle(T dataCollectionId, ChangeRecordEmitter changeRecordEmitter);
+        Optional<DataCollectionSchema> handle(Partition partition, T dataCollectionId, ChangeRecordEmitter changeRecordEmitter);
     }
 
     public DatabaseSchema<T> getSchema() {

@@ -8,6 +8,7 @@ package io.debezium.connector.sqlserver;
 import static io.debezium.connector.sqlserver.SqlServerConnectorConfig.DATABASE_NAMES;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -18,7 +19,6 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.config.Configuration;
 import io.debezium.pipeline.spi.Partition;
-import io.debezium.util.Collect;
 
 public class SqlServerPartition implements Partition {
     private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerPartition.class);
@@ -27,14 +27,16 @@ public class SqlServerPartition implements Partition {
 
     private final String serverName;
     private final String databaseName;
-    private final Map<String, String> sourcePartition;
+
+    // partition components must be stored in a linked map because they are used for building JMX bean names
+    private final Map<String, String> sourcePartition = new LinkedHashMap<>();
     private final int hashCode;
 
     public SqlServerPartition(String serverName, String databaseName, boolean multiPartitionMode) {
         this.serverName = serverName;
         this.databaseName = databaseName;
 
-        this.sourcePartition = Collect.hashMapOf(SERVER_PARTITION_KEY, serverName);
+        this.sourcePartition.put(SERVER_PARTITION_KEY, serverName);
         if (multiPartitionMode) {
             this.sourcePartition.put(DATABASE_PARTITION_KEY, databaseName);
         }
@@ -45,6 +47,14 @@ public class SqlServerPartition implements Partition {
     @Override
     public Map<String, String> getSourcePartition() {
         return sourcePartition;
+    }
+
+    @Override
+    public String toString() {
+        return "{" +
+                "server=" + serverName +
+                ", database=" + databaseName +
+                '}';
     }
 
     /**

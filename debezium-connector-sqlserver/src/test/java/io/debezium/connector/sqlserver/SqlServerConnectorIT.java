@@ -1180,7 +1180,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         // Wait for snapshot completion
         consumeRecordsByTopic(1);
@@ -1360,7 +1360,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO excluded_column_table_a VALUES(11, 'some_name', 120)");
 
@@ -1410,7 +1410,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO excluded_column_table_a VALUES(11, 'some_name', 120, 'a note')");
 
@@ -1462,7 +1462,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForStreamingRunning("sql_server", "server1");
+        TestHelper.waitForStreamingStarted();
 
         TestHelper.disableTableCdc(connection, "excluded_column_table_a");
         connection.execute("EXEC sp_RENAME 'excluded_column_table_a.name', 'first_name', 'COLUMN'");
@@ -1520,7 +1520,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
 
-        waitForStreamingRunning("sql_server", "server1");
+        TestHelper.waitForStreamingStarted();
         connection.execute("INSERT INTO excluded_column_table_a VALUES(10, 'some_name', 120)");
 
         final SourceRecords records = consumeRecordsByTopic(1);
@@ -1560,7 +1560,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO exclude_list_column_table_a VALUES(11, 120, 'some_name')");
         TestHelper.waitForCdcRecord(connection, "exclude_list_column_table_a", rs -> rs.getInt("id") == 11);
@@ -1607,7 +1607,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO include_list_column_table_a VALUES(10, 120, 'some_name')");
         TestHelper.waitForCdcRecord(connection, "include_list_column_table_a", rs -> rs.getInt("id") == 10);
@@ -1649,7 +1649,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO exclude_list_column_table_a VALUES(10, 120, 'a note', 'some_name')");
         TestHelper.waitForCdcRecord(connection, "exclude_list_column_table_a", rs -> rs.getInt("id") == 10);
@@ -1691,7 +1691,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
 
         connection.execute("INSERT INTO include_list_column_table_a VALUES(10, 120, 'a note', 'some_name')");
         TestHelper.waitForCdcRecord(connection, "include_list_column_table_a", rs -> rs.getInt("id") == 10);
@@ -2134,7 +2134,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
         connection.execute("INSERT INTO source_timestamp_mode VALUES(1, 'abc')");
 
         SourceRecords records = consumeRecordsByTopic(1);
@@ -2356,7 +2356,7 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
 
         start(SqlServerConnector.class, config);
         assertConnectorIsRunning();
-        waitForSnapshotToBeCompleted("sql_server", "server1");
+        TestHelper.waitForSnapshotToBeCompleted();
         connection.execute("INSERT INTO dt_table (id,c1,c2,c3a,c3b,f1,f2) values (1, 123, 456, 789.01, 'test', 1.228, 234.56)");
 
         SourceRecords records = consumeRecordsByTopic(1);
