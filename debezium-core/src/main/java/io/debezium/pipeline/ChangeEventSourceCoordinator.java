@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -97,8 +98,10 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
                                    EventMetadataProvider metadataProvider) {
         AtomicReference<LoggingContext.PreviousContext> previousLogContext = new AtomicReference<>();
         try {
-            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
-            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
+            Set<P> partitions = this.previousOffsets.getPartitions();
+
+            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
+            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
             running = true;
 
             // run the snapshot source on a separate thread so start() won't block
@@ -205,7 +208,7 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
             streamingConnected(true);
             LOGGER.info("Starting streaming");
             streamingSource.init();
-        incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(offsetContext));
+            incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(partition, offsetContext));
         }
         return streamingSource.execute(context, partition, offsetContext);
     }

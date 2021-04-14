@@ -104,7 +104,7 @@ public abstract class RelationalSnapshotChangeEventSource<P extends Partition, O
             // Note that there's a minor race condition here: a new table matching the filters could be created between
             // this call and the determination of the initial snapshot position below; this seems acceptable, though
             determineCapturedTables(ctx);
-            snapshotProgressListener.monitoredDataCollectionsDetermined(ctx.capturedTables);
+            snapshotProgressListener.monitoredDataCollectionsDetermined(snapshotContext.partition, ctx.capturedTables);
 
             LOGGER.info("Snapshot step 3 - Locking captured tables {}", ctx.capturedTables);
 
@@ -342,7 +342,7 @@ public abstract class RelationalSnapshotChangeEventSource<P extends Partition, O
         final Optional<String> selectStatement = determineSnapshotSelect(snapshotContext, table.id());
         if (!selectStatement.isPresent()) {
             LOGGER.warn("For table '{}' the select statement was not provided, skipping table", table.id());
-            snapshotProgressListener.dataCollectionSnapshotCompleted(table.id(), 0);
+            snapshotProgressListener.dataCollectionSnapshotCompleted(snapshotContext.partition, table.id(), 0);
             return;
         }
         LOGGER.info("\t For table '{}' using select statement: '{}'", table.id(), selectStatement.get());
@@ -376,14 +376,15 @@ public abstract class RelationalSnapshotChangeEventSource<P extends Partition, O
                             LOGGER.info("\t Exported {} records for table '{}' after {}", rows, table.id(),
                                     Strings.duration(stop - exportStart));
                         }
-                        snapshotProgressListener.rowsScanned(table.id(), rows);
+                        snapshotProgressListener.rowsScanned(snapshotContext.partition, table.id(), rows);
                         logTimer = getTableScanLogTimer();
                     }
 
                     if (snapshotContext.lastTable && snapshotContext.lastRecordInTable) {
                         lastSnapshotRecord(snapshotContext);
                     }
-                    dispatcher.dispatchSnapshotEvent(table.id(), getChangeRecordEmitter(snapshotContext, table.id(), row), snapshotReceiver);
+                    dispatcher.dispatchSnapshotEvent(snapshotContext.partition, table.id(),
+                            getChangeRecordEmitter(snapshotContext, table.id(), row), snapshotReceiver);
                 }
             }
             else if (snapshotContext.lastTable) {
@@ -392,7 +393,7 @@ public abstract class RelationalSnapshotChangeEventSource<P extends Partition, O
 
             LOGGER.info("\t Finished exporting {} records for table '{}'; total duration '{}'", rows,
                     table.id(), Strings.duration(clock.currentTimeInMillis() - exportStart));
-            snapshotProgressListener.dataCollectionSnapshotCompleted(table.id(), rows);
+            snapshotProgressListener.dataCollectionSnapshotCompleted(snapshotContext.partition, table.id(), rows);
         }
         catch (SQLException e) {
             throw new ConnectException("Snapshotting of table " + table.id() + " failed", e);

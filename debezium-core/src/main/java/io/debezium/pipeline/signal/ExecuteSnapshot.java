@@ -53,7 +53,8 @@ public class ExecuteSnapshot implements Signal.Action {
         LOGGER.info("Requested '{}' snapshot of data collections '{}'", type, dataCollections);
         switch (type) {
             case INCREMENTAL:
-                dispatcher.getIncrementalSnapshotChangeEventSource().addDataCollectionNamesToSnapshot(dataCollections, signalPayload.offsetContext);
+                dispatcher.getIncrementalSnapshotChangeEventSource().addDataCollectionNamesToSnapshot(
+                        signalPayload.partition, dataCollections, signalPayload.offsetContext);
                 break;
         }
         return true;
