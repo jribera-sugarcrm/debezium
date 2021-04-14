@@ -6,6 +6,7 @@
 package io.debezium.pipeline.spi;
 
 import java.util.Map;
+import java.util.Set;
 
 import io.debezium.DebeziumException;
 
@@ -21,6 +22,10 @@ public final class Offsets<P extends Partition, O extends OffsetContext> {
 
     public void resetOffset(P partition) {
         offsets.put(partition, null);
+    }
+
+    public Set<P> getPartitions() {
+        return offsets.keySet();
     }
 
     public Map<P, O> getOffsets() {

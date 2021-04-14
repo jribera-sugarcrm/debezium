@@ -30,7 +30,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import javax.management.InstanceNotFoundException;
 import javax.management.JMException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -1057,31 +1056,6 @@ public abstract class AbstractConnectorTest implements Testing {
 
     public static int waitTimeForRecordsAfterNulls() {
         return Integer.parseInt(System.getProperty(TEST_PROPERTY_PREFIX + "records.waittime.after.nulls", "3"));
-    }
-
-    public static void waitForSnapshotToBeCompleted(String connector, String server) throws InterruptedException {
-        final MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-
-        Awaitility.await()
-                .alias("Streaming was not started on time")
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .atMost(waitTimeForRecords() * 30, TimeUnit.SECONDS)
-                .ignoreException(InstanceNotFoundException.class)
-                .until(() -> (boolean) mbeanServer
-                        .getAttribute(getSnapshotMetricsObjectName(connector, server), "SnapshotCompleted"));
-    }
-
-    public static void waitForStreamingRunning(String connector, String server) throws InterruptedException {
-        waitForStreamingRunning(connector, server, getStreamingNamespace());
-    }
-
-    public static void waitForStreamingRunning(String connector, String server, String contextName) {
-        Awaitility.await()
-                .alias("Streaming was not started on time")
-                .pollInterval(100, TimeUnit.MILLISECONDS)
-                .atMost(waitTimeForRecords() * 30, TimeUnit.SECONDS)
-                .ignoreException(InstanceNotFoundException.class)
-                .until(() -> isStreamingRunning(connector, server, contextName));
     }
 
     public static void waitForConnectorShutdown(String connector, String server) {

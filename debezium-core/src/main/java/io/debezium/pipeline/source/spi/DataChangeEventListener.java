@@ -10,6 +10,7 @@ import org.apache.kafka.connect.data.Struct;
 import io.debezium.pipeline.ConnectorEvent;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.schema.DataCollectionId;
 
 /**
@@ -23,38 +24,38 @@ public interface DataChangeEventListener {
     /**
      * Invoked if an event is processed for a captured table.
      */
-    void onEvent(DataCollectionId source, OffsetContext offset, Object key, Struct value) throws InterruptedException;
+    void onEvent(Partition partition, DataCollectionId source, OffsetContext offset, Object key, Struct value) throws InterruptedException;
 
     /**
      * Invoked for events pertaining to non-captured tables.
      */
-    void onFilteredEvent(String event);
+    void onFilteredEvent(Partition partition, String event);
 
     /**
      * Invoked for events that cannot be processed.
      */
-    void onErroneousEvent(String event);
+    void onErroneousEvent(Partition partition, String event);
 
     /**
      * Invoked for events that represent a connector event.
      */
-    void onConnectorEvent(ConnectorEvent event);
+    void onConnectorEvent(Partition partition, ConnectorEvent event);
 
     static DataChangeEventListener NO_OP = new DataChangeEventListener() {
         @Override
-        public void onFilteredEvent(String event) {
+        public void onFilteredEvent(Partition partition, String event) {
         }
 
         @Override
-        public void onErroneousEvent(String event) {
+        public void onErroneousEvent(Partition partition, String event) {
         }
 
         @Override
-        public void onConnectorEvent(ConnectorEvent event) {
+        public void onConnectorEvent(Partition partition, ConnectorEvent event) {
         }
 
         @Override
-        public void onEvent(DataCollectionId source, OffsetContext offset, Object key, Struct value) {
+        public void onEvent(Partition partition, DataCollectionId source, OffsetContext offset, Object key, Struct value) {
         }
     };
 }

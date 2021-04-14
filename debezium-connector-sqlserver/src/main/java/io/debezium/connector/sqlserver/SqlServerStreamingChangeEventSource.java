@@ -289,6 +289,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
 
                             dispatcher
                                     .dispatchDataChangeEvent(
+                                            partition,
                                             tableId,
                                             new SqlServerChangeRecordEmitter(
                                                     partition,

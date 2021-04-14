@@ -66,7 +66,7 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
         boolean completedSuccessfully = true;
 
         try {
-            snapshotProgressListener.snapshotStarted();
+            snapshotProgressListener.snapshotStarted(partition);
             return doExecute(context, previousOffset, ctx, snapshottingTask);
         }
         catch (InterruptedException e) {
@@ -83,10 +83,10 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
             complete(ctx);
 
             if (completedSuccessfully) {
-                snapshotProgressListener.snapshotCompleted();
+                snapshotProgressListener.snapshotCompleted(partition);
             }
             else {
-                snapshotProgressListener.snapshotAborted();
+                snapshotProgressListener.snapshotAborted(partition);
             }
         }
     }
