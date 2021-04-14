@@ -6,6 +6,7 @@
 package io.debezium.pipeline;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +63,7 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
     private final Map<P, O> previousOffsets;
     private final ErrorHandler errorHandler;
     private final ChangeEventSourceFactory<P, O> changeEventSourceFactory;
-    private final ChangeEventSourceMetricsFactory changeEventSourceMetricsFactory;
+    private final ChangeEventSourceMetricsFactory<P> changeEventSourceMetricsFactory;
     private final ExecutorService executor;
     private final EventDispatcher<P, O, ?> eventDispatcher;
     private final DatabaseSchema<?> schema;
@@ -72,14 +73,14 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
     private final ReentrantLock commitOffsetLock = new ReentrantLock();
 
     private SnapshotChangeEventSourceMetrics snapshotMetrics;
-    private StreamingChangeEventSourceMetrics streamingMetrics;
+    private StreamingChangeEventSourceMetrics<P> streamingMetrics;
     private final Clock clock;
     private final Duration pollInterval;
 
     public ChangeEventSourceCoordinator(Map<P, O> previousOffsets, ErrorHandler errorHandler, Class<? extends SourceConnector> connectorType,
                                         CommonConnectorConfig connectorConfig,
                                         ChangeEventSourceFactory<P, O> changeEventSourceFactory,
-                                        ChangeEventSourceMetricsFactory changeEventSourceMetricsFactory, EventDispatcher<P, O, ?> eventDispatcher,
+                                        ChangeEventSourceMetricsFactory<P> changeEventSourceMetricsFactory, EventDispatcher<P, O, ?> eventDispatcher,
                                         DatabaseSchema<?> schema, Clock clock) {
         this.previousOffsets = previousOffsets;
         this.errorHandler = errorHandler;
@@ -96,8 +97,10 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
                                    EventMetadataProvider metadataProvider) {
         AtomicReference<LoggingContext.PreviousContext> previousLogContext = new AtomicReference<>();
         try {
-            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
-            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider);
+            Collection<P> partitions = this.previousOffsets.keySet();
+
+            this.snapshotMetrics = changeEventSourceMetricsFactory.getSnapshotMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
+            this.streamingMetrics = changeEventSourceMetricsFactory.getStreamingMetrics(taskContext, changeEventQueueMetrics, metadataProvider, partitions);
             running = true;
 
             // run the snapshot source on a separate thread so start() won't block
@@ -203,7 +206,7 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
             eventDispatcher.setEventListener(streamingMetrics);
             streamingConnected(true);
             LOGGER.info("Starting streaming");
-            incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(offsetContext));
+            incrementalSnapshotChangeEventSource.ifPresent(x -> x.init(partition, offsetContext));
         }
         StreamingResult<O> streamingResult = streamingSource.execute(context, partition, offsetContext);
         return streamingResult;

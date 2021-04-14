@@ -37,9 +37,9 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractSnapshotChangeEventSource.class);
 
     private final CommonConnectorConfig connectorConfig;
-    private final SnapshotProgressListener snapshotProgressListener;
+    private final SnapshotProgressListener<P> snapshotProgressListener;
 
-    public AbstractSnapshotChangeEventSource(CommonConnectorConfig connectorConfig, SnapshotProgressListener snapshotProgressListener) {
+    public AbstractSnapshotChangeEventSource(CommonConnectorConfig connectorConfig, SnapshotProgressListener<P> snapshotProgressListener) {
         this.connectorConfig = connectorConfig;
         this.snapshotProgressListener = snapshotProgressListener;
     }
@@ -66,7 +66,7 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
         boolean completedSuccessfully = true;
 
         try {
-            snapshotProgressListener.snapshotStarted();
+            snapshotProgressListener.snapshotStarted(partition);
             return doExecute(context, partition, previousOffset, ctx, snapshottingTask);
         }
         catch (InterruptedException e) {
@@ -83,10 +83,10 @@ public abstract class AbstractSnapshotChangeEventSource<P extends Partition, O e
             complete(ctx);
 
             if (completedSuccessfully) {
-                snapshotProgressListener.snapshotCompleted();
+                snapshotProgressListener.snapshotCompleted(partition);
             }
             else {
-                snapshotProgressListener.snapshotAborted();
+                snapshotProgressListener.snapshotAborted(partition);
             }
         }
     }
