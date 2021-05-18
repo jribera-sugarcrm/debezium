@@ -116,7 +116,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
         final String databaseName = partition.getDatabaseName();
         Queue<SqlServerChangeTable> schemaChangeCheckpoints = new PriorityQueue<>((x, y) -> x.getStopLsn().compareTo(y.getStopLsn()));
         try {
-            AtomicReference<SqlServerChangeTable[]> tablesSlot = new AtomicReference<>(getCdcTablesToQuery(partition, offsetContext));
+            AtomicReference<SqlServerChangeTable[]> tablesSlot;
 
             TxLogPosition lastProcessedPositionOnStart = offsetContext.getChangePosition();
             long lastProcessedEventSerialNoOnStart = offsetContext.getEventSerialNo();
@@ -140,6 +140,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                 shouldIncreaseFromLsn = offsetContext.getStreamingExecutionState().getShouldIncreaseFromLsn();
             }
             else {
+                tablesSlot = new AtomicReference<>(getCdcTablesToQuery(partition, offsetContext));
                 LOGGER.info("Last position recorded in offsets is {}[{}]", lastProcessedPositionOnStart, lastProcessedEventSerialNoOnStart);
             }
 
