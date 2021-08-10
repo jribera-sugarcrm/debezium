@@ -31,6 +31,8 @@ public class LoggingContext {
      * The key for the connector context name MDC property.
      */
     public static final String CONNECTOR_CONTEXT = "dbz.connectorContext";
+    public static final String CONNECTOR_TASK_ID = "dbz.connectorTaskId";
+    public static final String CONNECTOR_PARTITION = "dbz.connectorPartition";
 
     private LoggingContext() {
     }
@@ -78,9 +80,38 @@ public class LoggingContext {
         MDC.put(CONNECTOR_TYPE, connectorType);
         MDC.put(CONNECTOR_NAME, connectorName);
         MDC.put(CONNECTOR_CONTEXT, contextName);
+        MDC.put("dbz.partition", "dbz-partition");
         return previous;
     }
 
+    /**
+     * Configure for a connector the logger's Mapped Diagnostic Context (MDC) properties for the thread making this call.
+     *
+     * @param connectorType the type of connector; may not be null
+     * @param connectorName the name of the connector; may not be null
+     * @param contextName the name of the context; may not be null
+     * @return the previous MDC context; never null
+     * @throws IllegalArgumentException if any of the parameters are null
+     */
+    public static PreviousContext forConnector(String connectorType, String connectorName, String contextName, String taskId, String partition) {
+        if (connectorType == null) {
+            throw new IllegalArgumentException("The MDC value for the connector type may not be null");
+        }
+        if (connectorName == null) {
+            throw new IllegalArgumentException("The MDC value for the connector name may not be null");
+        }
+        if (contextName == null) {
+            throw new IllegalArgumentException("The MDC value for the connector context may not be null");
+        }
+        PreviousContext previous = new PreviousContext();
+        MDC.put(CONNECTOR_TYPE, connectorType);
+        MDC.put(CONNECTOR_NAME, connectorName);
+        MDC.put(CONNECTOR_CONTEXT, contextName);
+        MDC.put(CONNECTOR_TASK_ID, taskId);
+        MDC.put(CONNECTOR_PARTITION, partition);
+
+        return previous;
+    }
     /**
      * Run the supplied function in the temporary connector MDC context, and when complete always return the MDC context to its
      * state before this method was called.

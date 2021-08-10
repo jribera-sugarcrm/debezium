@@ -120,6 +120,7 @@ public class ChangeEventSourceCoordinator<P extends Partition, O extends OffsetC
                     for (Map.Entry<P, O> entry : previousOffsets.entrySet()) {
                         P partition = entry.getKey();
                         O previousOffset = entry.getValue();
+                        previousLogContext.set(taskContext.configureLoggingContext("snapshot", partition.toString()));
                         CatchUpStreamingResult catchUpStreamingResult = executeCatchUpStreaming(context, snapshotSource, partition, previousOffset);
                         if (catchUpStreamingResult.performedCatchUpStreaming) {
                             streamingConnected(false);
