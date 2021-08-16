@@ -53,6 +53,10 @@ public class CdcSourceTaskContext {
         return LoggingContext.forConnector(connectorType, connectorName, contextName);
     }
 
+    public LoggingContext.PreviousContext configureLoggingContext(String contextName, TaskPartition partition) {
+        return LoggingContext.forConnector(connectorType, connectorName, taskId, contextName, partition);
+    }
+
     /**
      * Run the supplied function in the temporary connector MDC context, and when complete always return the MDC context to its
      * state before this method was called.

@@ -124,6 +124,7 @@ public class ChangeEventSourceCoordinator<P extends TaskPartition, O extends Off
                     for (Map.Entry<P, O> entry : previousOffsetContext.getOffsets().entrySet()) {
                         partition = entry.getKey();
                         previousOffset = entry.getValue();
+                        previousLogContext.set(taskContext.configureLoggingContext("snapshot", partition));
 
                         eventDispatcher.setEventListener(snapshotMetrics);
                         SnapshotResult<O> snapshotResult = snapshotSource.execute(context, partition, previousOffset);
@@ -142,6 +143,7 @@ public class ChangeEventSourceCoordinator<P extends TaskPartition, O extends Off
                             partition = entry.getKey();
                             SnapshotResult<O> snapshotResult = partitionState.get(partition);
                             if (running && snapshotResult.isCompletedOrSkipped()) {
+                                previousLogContext.set(taskContext.configureLoggingContext("streaming", partition));
                                 StreamingResult<O> previousStreamingResult = null;
 
                                 if (!partitionStreamingResults.containsKey(entry.getKey())) {
