@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -201,7 +200,7 @@ public class SqlServerOffsetContext implements OffsetContext {
     }
 
     public void saveStreamingExecutionContext(Queue<SqlServerChangeTable> schemaChangeCheckpoints,
-                                              AtomicReference<SqlServerChangeTable[]> tablesSlot,
+                                              SqlServerChangeTable[] tablesSlot,
                                               TxLogPosition lastProcessedPositionOnStart,
                                               long lastProcessedEventSerialNoOnStart,
                                               TxLogPosition lastProcessedPosition,

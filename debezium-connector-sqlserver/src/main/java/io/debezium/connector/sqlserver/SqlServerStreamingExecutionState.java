@@ -7,11 +7,10 @@ package io.debezium.connector.sqlserver;
 
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class SqlServerStreamingExecutionState {
     private final Queue<SqlServerChangeTable> schemaChangeCheckpoints;
-    private final AtomicReference<SqlServerChangeTable[]> tablesSlot;
+    private final SqlServerChangeTable[] tablesSlot;
     private final TxLogPosition lastProcessedPositionOnStart;
     private final long lastProcessedEventSerialNoOnStart;
     private final TxLogPosition lastProcessedPosition;
@@ -24,7 +23,7 @@ public class SqlServerStreamingExecutionState {
     }
 
     SqlServerStreamingExecutionState(Queue<SqlServerChangeTable> schemaChangeCheckpoints,
-                                     AtomicReference<SqlServerChangeTable[]> tablesSlot,
+                                     SqlServerChangeTable[] tablesSlot,
                                      TxLogPosition lastProcessedPositionOnStart,
                                      long lastProcessedEventSerialNoOnStart,
                                      TxLogPosition lastProcessedPosition,
@@ -45,7 +44,7 @@ public class SqlServerStreamingExecutionState {
         return schemaChangeCheckpoints;
     }
 
-    public AtomicReference<SqlServerChangeTable[]> getTablesSlot() {
+    public SqlServerChangeTable[] getTablesSlot() {
         return tablesSlot;
     }
 
