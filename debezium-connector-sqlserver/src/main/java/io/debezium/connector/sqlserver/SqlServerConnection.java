@@ -13,6 +13,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -258,6 +259,11 @@ public class SqlServerConnection extends JdbcConnection {
     public void getChangesForTables(String databaseName, SqlServerChangeTable[] changeTables, Lsn intervalFromLsn,
                                     Lsn intervalToLsn, BlockingMultiResultSetConsumer consumer)
             throws SQLException, InterruptedException {
+
+        changeTables = Arrays.stream(changeTables)
+                .filter(ct -> ct.getStartLsn().compareTo(intervalToLsn) <= 0)
+                .toArray(SqlServerChangeTable[]::new);
+
         final String[] queries = new String[changeTables.length];
         final StatementPreparer[] preparers = new StatementPreparer[changeTables.length];
 
