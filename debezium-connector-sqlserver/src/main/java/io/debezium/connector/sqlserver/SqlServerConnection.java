@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -235,6 +236,11 @@ public class SqlServerConnection extends JdbcConnection {
     public void getChangesForTables(SqlServerChangeTable[] changeTables, Lsn intervalFromLsn, Lsn intervalToLsn,
                                     BlockingMultiResultSetConsumer consumer, String databaseName)
             throws SQLException, InterruptedException {
+
+        changeTables = Arrays.stream(changeTables)
+                .filter(ct -> ct.getStartLsn().compareTo(intervalToLsn) <= 0)
+                .toArray(SqlServerChangeTable[]::new);
+
         final String[] queries = new String[changeTables.length];
         final StatementPreparer[] preparers = new StatementPreparer[changeTables.length];
 
