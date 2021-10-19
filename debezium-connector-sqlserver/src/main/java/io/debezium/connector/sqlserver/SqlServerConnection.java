@@ -16,7 +16,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -237,10 +236,6 @@ public class SqlServerConnection extends JdbcConnection {
                                     BlockingMultiResultSetConsumer consumer, String databaseName)
             throws SQLException, InterruptedException {
 
-        changeTables = Arrays.stream(changeTables)
-                .filter(ct -> ct.getStartLsn().compareTo(intervalToLsn) <= 0)
-                .toArray(SqlServerChangeTable[]::new);
-
         final String[] queries = new String[changeTables.length];
         final StatementPreparer[] preparers = new StatementPreparer[changeTables.length];
 
@@ -343,6 +338,10 @@ public class SqlServerConnection extends JdbcConnection {
     }
 
     public Set<SqlServerChangeTable> listOfChangeTables(String databaseName) throws SQLException {
+        return listOfChangeTables(databaseName, Lsn.NULL, Lsn.NULL);
+    }
+
+    public Set<SqlServerChangeTable> listOfChangeTables(String databaseName, Lsn fromLsn, Lsn toLsn) throws SQLException {
         Map<Integer, List<String>> columns = queryAndMap(
                 GET_LIST_OF_CDC_ENABLED_COLUMNS.replace(DATABASE_NAME_PLACEHOLDER, databaseName),
                 rs -> {
@@ -358,7 +357,7 @@ public class SqlServerConnection extends JdbcConnection {
                     return result;
                 });
 
-        return queryAndMap(GET_LIST_OF_CDC_ENABLED_TABLES.replace(DATABASE_NAME_PLACEHOLDER, databaseName), rs -> {
+        final ResultSetMapper<Set<SqlServerChangeTable>> mapper = rs -> {
             final Set<SqlServerChangeTable> changeTables = new HashSet<>();
             while (rs.next()) {
                 int changeTableObjectId = rs.getInt(4);
@@ -372,7 +371,29 @@ public class SqlServerConnection extends JdbcConnection {
                                 columns.get(changeTableObjectId)));
             }
             return changeTables;
-        });
+        };
+
+        String query = GET_LIST_OF_CDC_ENABLED_TABLES.replace(DATABASE_NAME_PLACEHOLDER, databaseName);
+        if (fromLsn.isAvailable() && toLsn.isAvailable()) {
+            return prepareQueryAndMap(query + " WHERE ct.start_lsn <= ? AND (ct.end_lsn >= ? OR ct.end_lsn IS NULL)", ps -> {
+                ps.setBytes(1, toLsn.getBinary());
+                ps.setBytes(2, fromLsn.getBinary());
+            }, mapper);
+        }
+
+        if (fromLsn.isAvailable()) {
+            return prepareQueryAndMap(query + " WHERE ct.end_lsn >= ? OR ct.end_lsn IS NULL",
+                    ps -> ps.setBytes(1, fromLsn.getBinary()),
+                    mapper);
+        }
+
+        if (toLsn.isAvailable()) {
+            return prepareQueryAndMap(query + " WHERE ct.start_lsn <= ?",
+                    ps -> ps.setBytes(1, toLsn.getBinary()),
+                    mapper);
+        }
+
+        return queryAndMap(query, mapper);
     }
 
     public Set<SqlServerChangeTable> listOfNewChangeTables(Lsn fromLsn, Lsn toLsn, String databaseName) throws SQLException {
