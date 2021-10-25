@@ -654,20 +654,20 @@ public class SqlServerChangeTableSetIT extends AbstractConnectorTest {
                 throw new IllegalStateException(e);
             }
         });
-        // 3 tables from snapshot + 1 ALTER
-        Assertions.assertThat(changes).hasSize((3 + 1) * TestHelper.TEST_DATABASES.size());
+        // 2 CDC-enabled tables from snapshot + 1 ALTER
+        Assertions.assertThat(changes).hasSize((2 + 1) * TestHelper.TEST_DATABASES.size());
 
         Map<String, List<Document>> documentsByDatabase = new HashMap<>();
         changes.stream().forEach(document -> documentsByDatabase.computeIfAbsent(document.getString("databaseName"), key -> new ArrayList<>()).add(document));
         TestHelper.forEachDatabase(databaseName -> {
             final List<Document> databaseChanges = documentsByDatabase.get(databaseName);
-            databaseChanges.subList(0, 3).forEach(change -> {
+            databaseChanges.subList(0, 2).forEach(change -> {
                 final Array changeArray = change.getArray("tableChanges");
                 Assertions.assertThat(changeArray.size()).isEqualTo(1);
                 final String type = changeArray.get(0).asDocument().getString("type");
                 Assertions.assertThat(type).isEqualTo("CREATE");
             });
-            final Array changeArray = databaseChanges.get(3).getArray("tableChanges");
+            final Array changeArray = databaseChanges.get(2).getArray("tableChanges");
             Assertions.assertThat(changeArray.size()).isEqualTo(1);
             final String type = changeArray.get(0).asDocument().getString("type");
             final String tableIid = changeArray.get(0).asDocument().getString("id");
