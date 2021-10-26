@@ -174,7 +174,14 @@ public class SqlServerSnapshotChangeEventSource extends RelationalSnapshotChange
                 .map(TableId::schema)
                 .collect(Collectors.toSet());
 
-        Map<TableId, SqlServerChangeTable> changeTables = new HashMap<>();
+        // Save changeTables for sql select later.
+        final Map<TableId, SqlServerChangeTable> changeTables = jdbcConnection
+                .listOfChangeTables(partition.getDatabaseName())
+                .stream()
+                .collect(Collectors.toMap(SqlServerChangeTable::getSourceTableId, changeTable -> changeTable,
+                        (changeTable1, changeTable2) -> changeTable1.getStartLsn().compareTo(changeTable2.getStartLsn()) > 0
+                                ? changeTable1
+                                : changeTable2));
 
         // reading info only for the schemas we're interested in as per the set of captured tables;
         // while the passed table name filter alone would skip all non-included tables, reading the schema
@@ -193,13 +200,6 @@ public class SqlServerSnapshotChangeEventSource extends RelationalSnapshotChange
                     null,
                     false);
 
-            // Save changeTables for sql select later.
-            changeTables = jdbcConnection.listOfChangeTables(partition.getDatabaseName()).stream()
-                    .collect(Collectors.toMap(SqlServerChangeTable::getSourceTableId, changeTable -> changeTable,
-                            (changeTable1, changeTable2) -> changeTable1.getStartLsn().compareTo(changeTable2.getStartLsn()) > 0
-                                    ? changeTable1
-                                    : changeTable2));
-
             // Update table schemas to only include columns that are also included in the cdc tables.
             changeTables.forEach((tableId, sqlServerChangeTable) -> {
                 Table sourceTable = snapshotContext.tables.forTable(tableId);
@@ -211,6 +211,13 @@ public class SqlServerSnapshotChangeEventSource extends RelationalSnapshotChange
                             sourceTable.primaryKeyColumnNames(), sourceTable.defaultCharsetName());
                 }
             });
+
+            // Exclude the tables that don't have CDC enabled from the snapshot
+            snapshotContext.tables.tableIds().forEach((tableId -> {
+                if (!changeTables.containsKey(tableId)) {
+                    snapshotContext.capturedTables.remove(tableId);
+                }
+            }));
         }
 
         changeTablesByPartition.put(partition, changeTables);

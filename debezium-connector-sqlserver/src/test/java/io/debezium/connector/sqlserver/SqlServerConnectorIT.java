@@ -1076,6 +1076,33 @@ public class SqlServerConnectorIT extends AbstractConnectorTest {
     // }
 
     @Test
+    public void testSnapshottingCDCDisabledTable() throws Exception {
+        final int TABLES = 2;
+        final Configuration config = TestHelper.defaultMultiDatabaseConfig()
+                .with(SqlServerConnectorConfig.SNAPSHOT_MODE, SnapshotMode.INITIAL_ONLY)
+                .build();
+
+        String databaseName = TestHelper.TEST_FIRST_DATABASE;
+        TestHelper.disableTableCdc(connection, databaseName, "tableb");
+
+        connection.execute("USE " + databaseName);
+        connection.execute("INSERT INTO tableb VALUES(1, 'b')");
+
+        start(SqlServerConnector.class, config);
+        assertConnectorIsRunning();
+
+        TestHelper.waitForSnapshotToBeCompleted(databaseName);
+
+        final SourceRecords records = consumeRecordsByTopic(TABLES);
+        final List<SourceRecord> tableA = records.recordsForTopic(TestHelper.topicName(databaseName, "tablea"));
+        final List<SourceRecord> tableB = records.recordsForTopic(TestHelper.topicName(databaseName, "tableb"));
+        Assertions.assertThat(tableA).hasSize(1);
+        Assertions.assertThat(tableB == null || tableB.isEmpty()).isTrue();
+
+        stopConnector();
+    }
+
+    @Test
     @FixFor("DBZ-1617")
     public void blacklistColumnWhenCdcColumnsDoNotMatchWithOriginalSnapshot() throws Exception {
         TestHelper.forEachDatabase(databaseName -> {

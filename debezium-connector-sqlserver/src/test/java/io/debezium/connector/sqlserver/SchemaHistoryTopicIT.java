@@ -97,19 +97,18 @@ public class SchemaHistoryTopicIT extends AbstractConnectorTest {
 
         Testing.Print.enable();
 
-        // DDL for 3 tables
-        final SourceRecords snapshotRecords = consumeRecordsByTopic(3 * TestHelper.TEST_DATABASES.size());
+        // DDL for 2 tables (the third is not CDC-enabled)
+        final SourceRecords snapshotRecords = consumeRecordsByTopic(2 * TestHelper.TEST_DATABASES.size());
         TestHelper.forEachDatabase(databaseName -> {
             final List<SourceRecord> schemaRecords = snapshotRecords.ddlRecordsForDatabase(databaseName);
-            Assertions.assertThat(schemaRecords).hasSize(3);
+            Assertions.assertThat(schemaRecords).hasSize(2);
             schemaRecords.forEach(record -> {
                 Assertions.assertThat(record.topic()).isEqualTo(TestHelper.TEST_SERVER_NAME);
                 Assertions.assertThat(((Struct) record.key()).getString("databaseName")).isEqualTo(databaseName);
                 Assertions.assertThat(record.sourceOffset().get("snapshot")).isEqualTo(true);
             });
             Assertions.assertThat(((Struct) schemaRecords.get(0).value()).getStruct("source").getString("snapshot")).isEqualTo("true");
-            Assertions.assertThat(((Struct) schemaRecords.get(1).value()).getStruct("source").getString("snapshot")).isEqualTo("true");
-            Assertions.assertThat(((Struct) schemaRecords.get(2).value()).getStruct("source").getString("snapshot")).isEqualTo("last");
+            Assertions.assertThat(((Struct) schemaRecords.get(1).value()).getStruct("source").getString("snapshot")).isEqualTo("last");
 
             List<Struct> tableChanges = ((Struct) schemaRecords.get(0).value()).getArray("tableChanges");
             Assertions.assertThat(tableChanges).hasSize(1);
@@ -235,9 +234,9 @@ public class SchemaHistoryTopicIT extends AbstractConnectorTest {
         assertConnectorIsRunning();
         TestHelper.waitForAllDatabaseSnapshotsToBeCompleted();
 
-        // DDL for 3 tables + inserts for 2 tables
-        final SourceRecords snapshotRecords = consumeRecordsByTopic((3 + RECORDS_PER_TABLE * TABLES) * TestHelper.TEST_DATABASES.size());
-        Assertions.assertThat(snapshotRecords.allRecordsInOrder()).hasSize((3 + RECORDS_PER_TABLE * TABLES) * TestHelper.TEST_DATABASES.size());
+        // DDL for 2 tables (the third is not CDC-enabled) + inserts for 2 tables
+        final SourceRecords snapshotRecords = consumeRecordsByTopic((2 + RECORDS_PER_TABLE * TABLES) * TestHelper.TEST_DATABASES.size());
+        Assertions.assertThat(snapshotRecords.allRecordsInOrder()).hasSize((2 + RECORDS_PER_TABLE * TABLES) * TestHelper.TEST_DATABASES.size());
 
         TestHelper.forEachDatabase(databaseName -> {
             List<SourceRecord> schemaChanges = snapshotRecords.ddlRecordsForDatabase(databaseName);
@@ -248,7 +247,6 @@ public class SchemaHistoryTopicIT extends AbstractConnectorTest {
             });
             Assertions.assertThat(((Struct) schemaChanges.get(0).value()).getStruct("source").getString("snapshot")).isEqualTo("true");
             Assertions.assertThat(((Struct) schemaChanges.get(1).value()).getStruct("source").getString("snapshot")).isEqualTo("true");
-            Assertions.assertThat(((Struct) schemaChanges.get(2).value()).getStruct("source").getString("snapshot")).isEqualTo("true");
 
             final List<Struct> tableChanges = ((Struct) schemaChanges.get(0).value()).getArray("tableChanges");
             Assertions.assertThat(tableChanges).hasSize(1);
