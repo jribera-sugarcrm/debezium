@@ -14,14 +14,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.debezium.config.Configuration;
 import io.debezium.pipeline.spi.Partition;
 
 public class SqlServerPartition implements Partition {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerPartition.class);
     private static final String SERVER_PARTITION_KEY = "server";
     private static final String DATABASE_PARTITION_KEY = "database";
 
@@ -84,12 +80,10 @@ public class SqlServerPartition implements Partition {
     static class Provider implements Partition.Provider<SqlServerPartition> {
         private final SqlServerConnectorConfig connectorConfig;
         private final Configuration taskConfig;
-        private final SqlServerConnection connection;
 
-        Provider(SqlServerConnectorConfig connectorConfig, Configuration taskConfig, SqlServerConnection connection) {
+        Provider(SqlServerConnectorConfig connectorConfig, Configuration taskConfig) {
             this.connectorConfig = connectorConfig;
             this.taskConfig = taskConfig;
-            this.connection = connection;
         }
 
         @Override
@@ -100,17 +94,8 @@ public class SqlServerPartition implements Partition {
             String[] databaseNames = taskConfig.getString(DATABASE_NAMES.name()).split(",");
 
             return Arrays.stream(databaseNames)
-                    .map(databaseName -> {
-                        try {
-                            return connection.retrieveRealDatabaseName(databaseName);
-                        }
-                        catch (RuntimeException e) {
-                            LOGGER.warn("Couldn't obtain real name for database {}", databaseName);
-                            return "";
-                        }
-                    })
-                    .filter(realDatabaseName -> !realDatabaseName.isEmpty())
-                    .map(realDatabaseName -> new SqlServerPartition(serverName, realDatabaseName, multiPartitionMode))
+                    .filter(databaseName -> !databaseName.isEmpty())
+                    .map(databaseName -> new SqlServerPartition(serverName, databaseName, multiPartitionMode))
                     .collect(Collectors.toSet());
         }
     }
