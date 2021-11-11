@@ -185,7 +185,7 @@ public class SqlServerSnapshotChangeEventSource extends RelationalSnapshotChange
                 .listOfChangeTables(snapshotContext.partition.getDatabaseName())
                 .stream()
                 .collect(Collectors.toMap(SqlServerChangeTable::getSourceTableId, changeTable -> changeTable,
-                        (changeTable1, changeTable2) -> changeTable1.compareTo(changeTable2) > 0
+                        (changeTable1, changeTable2) -> changeTable1.getStartLsn().compareTo(changeTable2.getStartLsn()) > 0
                                 ? changeTable1
                                 : changeTable2));
 

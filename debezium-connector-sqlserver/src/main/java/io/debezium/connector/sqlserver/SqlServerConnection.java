@@ -72,12 +72,12 @@ public class SqlServerConnection extends JdbcConnection {
     private static final String GET_ALL_CHANGES_FOR_TABLE = "SELECT *# FROM [#db].cdc.[fn_cdc_get_all_changes_#](?, ?, N'all update old') order by [__$start_lsn] ASC, [__$seqval] ASC, [__$operation] ASC";
     private final String get_all_changes_for_table;
     protected static final String LSN_TIMESTAMP_SELECT_STATEMENT = "TODATETIMEOFFSET([#db].sys.fn_cdc_map_lsn_to_time([__$start_lsn]), DATEPART(TZOFFSET, SYSDATETIMEOFFSET()))";
-    private static final String GET_LIST_OF_CDC_ENABLED_TABLES = "SELECT s.name AS source_schema, o.name AS source_table, ct.capture_instance, ct.object_id, ct.start_lsn, ct.end_lsn, ct.create_date "
+    private static final String GET_LIST_OF_CDC_ENABLED_TABLES = "SELECT s.name AS source_schema, o.name AS source_table, ct.capture_instance, ct.object_id, ct.start_lsn, ct.end_lsn "
             + "FROM [#db].cdc.change_tables ct "
-            + "INNER JOIN [#db].sys.objects o ON ct.source_object_id = o.object_id "
-            + "INNER JOIN [#db].sys.schemas s ON s.schema_id = o.schema_id";
+            + "LEFT JOIN [#db].sys.objects o ON ct.source_object_id = o.object_id "
+            + "LEFT JOIN [#db].sys.schemas s ON s.schema_id = o.schema_id";
     private static final String GET_LIST_OF_CDC_ENABLED_COLUMNS = "SELECT object_id, column_id, column_name FROM [#db].cdc.captured_columns ORDER BY object_id ASC, column_id ASC";
-    private static final String GET_LIST_OF_NEW_CDC_ENABLED_TABLES = "SELECT object_id, capture_instance, start_lsn, end_lsn, create_date FROM [#db].cdc.change_tables WHERE start_lsn BETWEEN ? AND ?";
+    private static final String GET_LIST_OF_NEW_CDC_ENABLED_TABLES = "SELECT * FROM [#db].cdc.change_tables WHERE start_lsn BETWEEN ? AND ?";
     private static final String OPENING_QUOTING_CHARACTER = "[";
     private static final String CLOSING_QUOTING_CHARACTER = "]";
 
@@ -377,7 +377,6 @@ public class SqlServerConnection extends JdbcConnection {
                                 changeTableObjectId,
                                 Lsn.valueOf(rs.getBytes(5)),
                                 Lsn.valueOf(rs.getBytes(6)),
-                                rs.getTimestamp(7).toInstant(),
                                 columns.get(changeTableObjectId)));
             }
             return changeTables;
@@ -418,11 +417,10 @@ public class SqlServerConnection extends JdbcConnection {
                     final Set<SqlServerChangeTable> changeTables = new HashSet<>();
                     while (rs.next()) {
                         changeTables.add(new SqlServerChangeTable(
-                                rs.getString(2),
+                                rs.getString(4),
                                 rs.getInt(1),
-                                Lsn.valueOf(rs.getBytes(3)),
-                                Lsn.valueOf(rs.getBytes(4)),
-                                rs.getTimestamp(5).toInstant()));
+                                Lsn.valueOf(rs.getBytes(5)),
+                                Lsn.valueOf(rs.getBytes(6))));
                     }
                     return changeTables;
                 });

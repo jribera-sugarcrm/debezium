@@ -395,7 +395,7 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
             SqlServerChangeTable currentTable = captures.get(0);
             if (captures.size() > 1) {
                 SqlServerChangeTable futureTable;
-                if (captures.get(0).compareTo(captures.get(1)) < 0) {
+                if (captures.get(0).getStartLsn().compareTo(captures.get(1).getStartLsn()) < 0) {
                     futureTable = captures.get(1);
                 }
                 else {
@@ -406,9 +406,6 @@ public class SqlServerStreamingChangeEventSource implements StreamingChangeEvent
                 futureTable.setSourceTable(dataConnection.getTableSchemaFromTable(databaseName, futureTable));
                 tables.add(futureTable);
                 LOGGER.info("Multiple capture instances present for the same table: {} and {}", currentTable, futureTable);
-                if (currentTable.getStartLsn().equals(futureTable.getStartLsn())) {
-                    LOGGER.info("Both {} and {} have the same start LSN", currentTable, futureTable);
-                }
             }
             if (schema.tableFor(currentTable.getSourceTableId()) == null) {
                 LOGGER.info("Table {} is new to be monitored by capture instance {}", currentTable.getSourceTableId(), currentTable.getCaptureInstance());
