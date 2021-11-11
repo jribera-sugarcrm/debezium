@@ -94,6 +94,4 @@ public interface OffsetContext {
     default IncrementalSnapshotContext<?> getIncrementalSnapshotContext() {
         return null;
     };
-
-    boolean eventsStreamed();
 }
