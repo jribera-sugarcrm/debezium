@@ -202,7 +202,7 @@ public class SqlServerConnectionIT {
                         "varbinary_column", "image_column");
 
                 SqlServerChangeTable changeTable = new SqlServerChangeTable(new TableId(databaseName, "dbo", "table_with_defaults"),
-                        null, 0, null, null, null, capturedColumns);
+                        null, 0, null, null, capturedColumns);
                 Table table = connection.getTableSchemaFromTable(databaseName, changeTable);
 
                 assertColumnHasNotDefaultValue(table, "int_no_default_not_null");
@@ -353,7 +353,7 @@ public class SqlServerConnectionIT {
                                 "real_column");
 
                 SqlServerChangeTable changeTable = new SqlServerChangeTable(new TableId(databaseName, "dbo", "table_with_defaults"),
-                        null, 0, null, null, null, capturedColumns);
+                        null, 0, null, null, capturedColumns);
                 Table table = connection.getTableSchemaFromTable(databaseName, changeTable);
 
                 assertColumnHasNotDefaultValue(table, "int_no_default_not_null");
