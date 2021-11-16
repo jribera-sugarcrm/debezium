@@ -110,7 +110,7 @@ public class SqlServerConnectorTask extends BaseSourceTask<SqlServerPartition, S
                 metadataProvider,
                 schemaNameAdjuster);
 
-        ChangeEventSourceCoordinator<SqlServerPartition, SqlServerOffsetContext> coordinator = new ChangeEventSourceCoordinator<>(
+        ChangeEventSourceCoordinator<SqlServerPartition, SqlServerOffsetContext> coordinator = new SqlServerChangeEventSourceCoordinator(
                 offsets,
                 errorHandler,
                 SqlServerConnector.class,
