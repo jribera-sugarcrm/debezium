@@ -5,6 +5,8 @@
  */
 package io.debezium.connector.sqlserver;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import io.debezium.pipeline.ErrorHandler;
@@ -15,6 +17,7 @@ import io.debezium.pipeline.source.spi.ChangeEventSourceFactory;
 import io.debezium.pipeline.source.spi.DataChangeEventListener;
 import io.debezium.pipeline.source.spi.SnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
+import io.debezium.pipeline.source.spi.SnapshotProgressListenerList;
 import io.debezium.pipeline.source.spi.StreamingChangeEventSource;
 import io.debezium.relational.TableId;
 import io.debezium.schema.DataCollectionId;
@@ -43,7 +46,14 @@ public class SqlServerChangeEventSourceFactory implements ChangeEventSourceFacto
 
     @Override
     public SnapshotChangeEventSource<SqlServerPartition, SqlServerOffsetContext> getSnapshotChangeEventSource(SnapshotProgressListener snapshotProgressListener) {
-        return new SqlServerSnapshotChangeEventSource(configuration, dataConnection, schema, dispatcher, clock, snapshotProgressListener);
+        final List<SnapshotProgressListener> snapshotProgressListeners = new ArrayList<>();
+        snapshotProgressListeners.add(snapshotProgressListener);
+        if (configuration.getOptionDatabaseCallbacks()) {
+            snapshotProgressListeners.add(new SqlServerSnapshotProgressDatabaseCallbacks(dataConnection));
+        }
+
+        SnapshotProgressListenerList snapshotProgressListenerList = new SnapshotProgressListenerList(snapshotProgressListeners);
+        return new SqlServerSnapshotChangeEventSource(configuration, dataConnection, schema, dispatcher, clock, snapshotProgressListenerList);
     }
 
     @Override

@@ -39,6 +39,7 @@ import io.debezium.relational.ChangeTable;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.DatabaseSchema;
 
 /**
@@ -79,6 +80,10 @@ public class SqlServerConnection extends JdbcConnection {
     private static final String OPENING_QUOTING_CHARACTER = "[";
     private static final String CLOSING_QUOTING_CHARACTER = "]";
     private static final String START_READING_CHANGE_TABLE = "EXEC [#db].dbo.DebeziumSQLConnector_StartReadingFromCaptureInstance @CaptureInstanceName = ?";
+    private static final String START_SNAPSHOT = "EXEC [#db].dbo.DebeziumSQLConnector_StartSnapshot";
+    private static final String COMPLETED_SNAPSHOT = "EXEC [#db].dbo.DebeziumSQLConnector_CompletedSnapshot";
+    private static final String ABORTED_SNAPSHOT = "EXEC [#db].dbo.DebeziumSQLConnector_AbortedSnapshot";
+    private static final String DATA_COLLECTION_SNAPSHOT_COMPLETED = "EXEC [#db].dbo.DebeziumSQLConnector_DataCollectionSnapshotCompleted @DataCollectionId = ?";
 
     private static final String URL_PATTERN = "jdbc:sqlserver://${" + JdbcConfiguration.HOSTNAME + "}:${" + JdbcConfiguration.PORT + "}";
 
@@ -572,6 +577,32 @@ public class SqlServerConnection extends JdbcConnection {
         prepareUpdate(query, ps -> {
             LOGGER.trace("Calling the StartReadingFromCaptureInstance stored procedure with change table: {}", table);
             ps.setString(1, table.getCaptureInstance());
+        });
+    }
+
+    public void callbackOnSnapshotStarted(SqlServerPartition partition) throws SQLException {
+        final String statement = replaceDatabaseNamePlaceholder(START_SNAPSHOT, partition.getDatabaseName());
+        LOGGER.trace("Calling the StartSnapshot stored procedure");
+        execute(statement);
+    }
+
+    public void callbackOnSnapshotCompleted(SqlServerPartition partition) throws SQLException {
+        final String statement = replaceDatabaseNamePlaceholder(COMPLETED_SNAPSHOT, partition.getDatabaseName());
+        LOGGER.trace("Calling the CompletedSnapshot stored procedure");
+        execute(statement);
+    }
+
+    public void callbackOnSnapshotAborted(SqlServerPartition partition) throws SQLException {
+        final String statement = replaceDatabaseNamePlaceholder(ABORTED_SNAPSHOT, partition.getDatabaseName());
+        LOGGER.trace("Calling the CompletedSnapshot stored procedure");
+        execute(statement);
+    }
+
+    public void callbackOnDataCollectionSnapshotCompleted(SqlServerPartition partition, DataCollectionId dataCollectionId) throws SQLException {
+        final String query = replaceDatabaseNamePlaceholder(DATA_COLLECTION_SNAPSHOT_COMPLETED, partition.getDatabaseName());
+        prepareUpdate(query, ps -> {
+            LOGGER.trace("Calling the DataCollectionSnapshotCompleted stored procedure with dataCollectionId: {}", dataCollectionId);
+            ps.setString(1, dataCollectionId.identifier());
         });
     }
 }
