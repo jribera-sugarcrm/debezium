@@ -313,6 +313,14 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
                     + "In '" + SnapshotIsolationMode.READ_UNCOMMITTED.getValue()
                     + "' mode neither table nor row-level locks are acquired, but connector does not guarantee snapshot consistency.");
 
+    public static final Field DATABASE_CALLBACKS = Field.createInternal("database.callbacks")
+            .withDisplayName("Database Callbacks")
+            .withDefault(false)
+            .withType(Type.BOOLEAN)
+            .withImportance(Importance.LOW)
+            .withValidation(Field::isBoolean)
+            .withDescription("This property can be used to enable/disable performing database callbacks during snapshot or streaming.");
+
     private static final ConfigDefinition CONFIG_DEFINITION = HistorizedRelationalDatabaseConnectorConfig.CONFIG_DEFINITION.edit()
             .name("SQL Server")
             .type(
@@ -328,7 +336,8 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
                     SNAPSHOT_ISOLATION_MODE,
                     SOURCE_TIMESTAMP_MODE,
                     MAX_TRANSACTIONS_PER_ITERATION,
-                    BINARY_HANDLING_MODE)
+                    BINARY_HANDLING_MODE,
+                    DATABASE_CALLBACKS)
             .excluding(
                     SCHEMA_WHITELIST,
                     SCHEMA_INCLUDE_LIST,
@@ -353,6 +362,7 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
     private final boolean readOnlyDatabaseConnection;
     private final int maxTransactionsPerIteration;
     private final boolean multiPartitionMode;
+    private final boolean optionDatabaseCallbacks;
 
     public SqlServerConnectorConfig(Configuration config) {
         super(SqlServerConnector.class, config, config.getString(SERVER_NAME), new SystemTablesPredicate(), x -> x.schema() + "." + x.table(), true,
@@ -393,6 +403,8 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
         if (!config.getBoolean(MAX_LSN_OPTIMIZATION)) {
             LOGGER.warn("The option '{}' is no longer taken into account. The optimization is always enabled.", MAX_LSN_OPTIMIZATION.name());
         }
+
+        this.optionDatabaseCallbacks = config.getBoolean(DATABASE_CALLBACKS);
     }
 
     public Configuration jdbcConfig() {
@@ -409,6 +421,10 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
 
     public boolean isMultiPartitionModeEnabled() {
         return multiPartitionMode;
+    }
+
+    public boolean getOptionDatabaseCallbacks() {
+        return optionDatabaseCallbacks;
     }
 
     public SnapshotIsolationMode getSnapshotIsolationMode() {
