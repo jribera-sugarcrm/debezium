@@ -575,33 +575,33 @@ public class SqlServerConnection extends JdbcConnection {
     public void callbackOnReadingNewChangeTable(SqlServerPartition partition, ChangeTable table) throws SQLException {
         final String query = replaceDatabaseNamePlaceholder(START_READING_CHANGE_TABLE, partition.getDatabaseName());
         prepareUpdate(query, ps -> {
-            LOGGER.trace("Calling the StartReadingFromCaptureInstance stored procedure with change table: {}", table);
+            LOGGER.debug("Calling the StartReadingFromCaptureInstance stored procedure with change table: {}", table);
             ps.setString(1, table.getCaptureInstance());
         });
     }
 
     public void callbackOnSnapshotStarted(SqlServerPartition partition) throws SQLException {
         final String statement = replaceDatabaseNamePlaceholder(START_SNAPSHOT, partition.getDatabaseName());
-        LOGGER.trace("Calling the StartSnapshot stored procedure");
+        LOGGER.debug("Calling the StartSnapshot stored procedure");
         execute(statement);
     }
 
     public void callbackOnSnapshotCompleted(SqlServerPartition partition) throws SQLException {
         final String statement = replaceDatabaseNamePlaceholder(COMPLETED_SNAPSHOT, partition.getDatabaseName());
-        LOGGER.trace("Calling the CompletedSnapshot stored procedure");
+        LOGGER.debug("Calling the CompletedSnapshot stored procedure");
         execute(statement);
     }
 
     public void callbackOnSnapshotAborted(SqlServerPartition partition) throws SQLException {
         final String statement = replaceDatabaseNamePlaceholder(ABORTED_SNAPSHOT, partition.getDatabaseName());
-        LOGGER.trace("Calling the CompletedSnapshot stored procedure");
+        LOGGER.debug("Calling the CompletedSnapshot stored procedure");
         execute(statement);
     }
 
     public void callbackOnDataCollectionSnapshotCompleted(SqlServerPartition partition, DataCollectionId dataCollectionId) throws SQLException {
         final String query = replaceDatabaseNamePlaceholder(DATA_COLLECTION_SNAPSHOT_COMPLETED, partition.getDatabaseName());
         prepareUpdate(query, ps -> {
-            LOGGER.trace("Calling the DataCollectionSnapshotCompleted stored procedure with dataCollectionId: {}", dataCollectionId);
+            LOGGER.debug("Calling the DataCollectionSnapshotCompleted stored procedure with dataCollectionId: {}", dataCollectionId);
             ps.setString(1, dataCollectionId.identifier());
         });
     }

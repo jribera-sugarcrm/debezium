@@ -313,7 +313,7 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
                     + "In '" + SnapshotIsolationMode.READ_UNCOMMITTED.getValue()
                     + "' mode neither table nor row-level locks are acquired, but connector does not guarantee snapshot consistency.");
 
-    public static final Field DATABASE_CALLBACKS = Field.createInternal("database.callbacks")
+    public static final Field DATABASE_CALLBACKS = Field.create("database.callbacks")
             .withDisplayName("Database Callbacks")
             .withDefault(false)
             .withType(Type.BOOLEAN)
@@ -405,6 +405,12 @@ public class SqlServerConnectorConfig extends HistorizedRelationalDatabaseConnec
         }
 
         this.optionDatabaseCallbacks = config.getBoolean(DATABASE_CALLBACKS);
+        if (optionDatabaseCallbacks) {
+            LOGGER.info("Database callbacks are enabled");
+        }
+        else {
+            LOGGER.info("Database callbacks are disabled");
+        }
     }
 
     public Configuration jdbcConfig() {
